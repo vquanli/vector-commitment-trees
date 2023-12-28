@@ -1,3 +1,6 @@
 [submodule "blst"]
 	path = blst
 	url = https://github.com/supranational/blst.git
+[submodule "bandersnatch"]
+	path = bandersnatch
+	url = https://github.com/zhenfeizhang/bandersnatch.git
