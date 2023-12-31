@@ -121,15 +121,15 @@ class VerkleBST:
         root = self.root
 
         path = self.find_path_to_node(root, key)
-        last_node = path[-1][1]
+        last_node = path[-1][0]
 
         # Insert
         if last_node is None:
             path.pop()
-            self._insert(path[-1][1], key, value)
-            new_node = self.find_node(path[-1][1], key)
+            self._insert(path[-1][0], key, value)
+            new_node = self.find_node(path[-1][0], key)
             new_node.node_hash()
-            path.append((None, new_node))
+            path.append((new_node, None))
             value_change = int_from_bytes(new_node.hash) % self.modulus
 
         # Update
@@ -140,7 +140,7 @@ class VerkleBST:
             new_hash = last_node.hash
             value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
-        for edge, node in reversed(path):
+        for node, edge in reversed(path):
             if edge is None:
                 continue
 
@@ -168,12 +168,12 @@ class VerkleBST:
         # Leaf node
         if children == 0:
             path = self.find_path_to_node(root, key)
-            node_to_delete = path[-1][1]
+            node_to_delete = path[-1][0]
             path.pop()
-            node_to_update = path[-1][1]
-            if path[-1][0] == 0:
+            node_to_update = path[-1][0]
+            if path[-1][1] == 0:
                 node_to_update.left = None
-            elif path[-1][0] == 1:
+            elif path[-1][1] == 1:
                 node_to_update.right = None
             value_change = (- int_from_bytes(node_to_delete.hash) + self.modulus) % self.modulus
             del node_to_delete
@@ -181,13 +181,13 @@ class VerkleBST:
         # Parent with only child
         elif children == 1:
             path = self.find_path_to_node(root, key)
-            node_to_delete = path[-1][1]
+            node_to_delete = path[-1][0]
             node_to_pullup = next(child for child in [node_to_delete.left, node_to_delete.right] if child is not None)
             path.pop()
-            node_to_update = path[-1][1]
-            if path[-1][0] == 0:
+            node_to_update = path[-1][0]
+            if path[-1][1] == 0:
                 node_to_update.left = node_to_pullup
-            elif path[-1][0] == 1:
+            elif path[-1][1] == 1:
                 node_to_update.right = node_to_pullup
             value_change = (int_from_bytes(node_to_pullup.hash) - int_from_bytes(node_to_delete.hash) + self.modulus) % self.modulus
             del node_to_delete
@@ -200,10 +200,10 @@ class VerkleBST:
             node.value = inorder_succ.value
             node_to_delete = inorder_succ
             path.pop()
-            node_to_update = path[-1][1]
-            if path[-1][0] == 0:  # Same as node != node_to_update
+            node_to_update = path[-1][0]
+            if path[-1][1] == 0:  # Same as node != node_to_update
                 node_to_update.left = node_to_delete.right
-            elif path[-1][0] == 1:  # Same as node == node_to_update
+            elif path[-1][1] == 1:  # Same as node == node_to_update
                 node_to_update.right = node_to_delete.right
 
             if node_to_delete.is_leaf():
@@ -213,7 +213,7 @@ class VerkleBST:
                                 + self.modulus) % self.modulus
             del node_to_delete
 
-        for edge, node in reversed(path):
+        for node, edge in reversed(path):
             old_hash = node.hash
             if node.commitment is None:
                 self.add_node_hash(node)
@@ -251,13 +251,13 @@ class VerkleBST:
         path = []
         while node is not None:
             if key == node.key:
-                path.append((None, node))
+                path.append((node, None))
                 break
             elif key < node.key:
                 edge = 0  # edge 0 for left
             elif key > node.key:
                 edge = 1  # edge 1 for right
-            path.append((edge, node))
+            path.append((node, edge))
             node = node.left if edge == 0 else node.right
 
         if node is None:
