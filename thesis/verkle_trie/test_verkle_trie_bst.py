@@ -1,4 +1,4 @@
-from verkle_trie import VerkleBST, VerkleBSTNode, KzgIntegration, int_to_bytes
+from verkle_trie_bst import VerkleBST, VerkleBSTNode, KzgIntegration, int_to_bytes
 
 
 MODULUS = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
