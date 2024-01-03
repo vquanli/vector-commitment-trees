@@ -223,10 +223,11 @@ class VerkleBTree:
         
         t = self.min_degree
         
-        path_splits = [] 
+        update_path = [] 
         for i in range(len(path)):
             node, idx, node_type = path[i]
-            past_idx = path[i - 1][1]
+            previous_node = path[i - 1][0]
+            previous_idx = path[i - 1][1]           
             hash = node.hash
             value_dict = {'node_type': node_type, 'hash': hash}
             if splits[i]:
@@ -234,52 +235,57 @@ class VerkleBTree:
                     value_dict['updated_idx'] = 1 if idx > t - 1 else 0
                     value_dict['split_idx'] = 0 if idx > t - 1 else 1
                 else:
-                    value_dict['updated_idx'] = past_idx + 1 if idx > t - 1 else past_idx
-                    value_dict['split_idx'] = past_idx if idx > t - 1 else past_idx + 1
+                    value_dict['updated_idx'] = previous_idx + 1 if idx > t - 1 else previous_idx
+                    value_dict['split_idx'] = previous_idx if idx > t - 1 else previous_idx + 1
+                    if not splits[i - 1] and previous_node.child_count() > previous_idx + 1:
+                        value_dict['shifted_idx'] = [i + 1 for i in range(previous_idx + 1, previous_node.child_count())]
+                    elif splits[i - 1] and t - 1 > previous_idx:
+                        value_dict['shifted_idx'] = [i + 1 for i in range(previous_idx + 1, t)]
 
                 if node_type == 'leaf_node':
-                    path_splits.append(value_dict)
+                    update_path.append(value_dict)
 
                 elif node_type == 'inner_node':
                     child_hashes = [node.hash for node in node.children[t: (2 * t)]]
                     value_dict['child_hashes'] = child_hashes
-                    path_splits.append(value_dict)
+                    update_path.append(value_dict)
                     path[i] = (node, idx % t, node_type)
             else:
                 if i == 0:
                     continue
                 else:
-                    value_dict['updated_idx'] = past_idx
-                    path_splits.append(value_dict)
+                    value_dict['updated_idx'] = previous_idx
+                    update_path.append(value_dict)
 
         self.insert_node(key, value)
 
         current_node = self.root
-        for node in path_splits:
+        for node in update_path:
             node['updated_node'] = current_node.children[node['updated_idx']]
             if 'split_idx' in node:
                 node['split_node'] = current_node.children[node['split_idx']]
+            if 'shifted_idx' in node:
+                node['shifted_nodes'] = [current_node.children[i] for i in node['shifted_idx']]
             current_node = node['updated_node']
 
         update_node_changes = []
         split_node_changes = []
 
         root_dict = {'node_type': 'root_node', 'updated_node': self.root}
-        path_splits.insert(0, root_dict)
-        for node in reversed(path_splits):
+        update_path.insert(0, root_dict)
+        for node in reversed(update_path):
             
             node['updated_node'].node_hash()
 
+            # Changes to current node
             if node['node_type'] == 'root_node':
-                if 'split_node' in path_splits[1]:
+                if 'split_node' in update_path[1]:
                     self.add_node_hash(node['updated_node'])
                 else:
                     for idx, value_change in update_node_changes:
                         node['updated_node'].commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
                         node['updated_node'].node_hash()
                 return
-
-
             if node['node_type'] == 'inner_node':
                 if 'split_node' in node:
                     node['split_node'].node_hash()
@@ -293,6 +299,7 @@ class VerkleBTree:
                         split_node_changes = changes_to_original
 
                 
+            # Update commits to current nodes
             if len(split_node_changes) > 0:
                 for idx, value_change in split_node_changes:
                     node['split_node'].commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
@@ -306,14 +313,24 @@ class VerkleBTree:
                     node['updated_node'].node_hash()
                 update_node_changes = []
 
+            # Changes to next node
             if 'split_node' in node:
                 node['split_node'].node_hash()
                 min_idx = min(node['updated_idx'], node['split_idx'])
                 nodes = (node['updated_node'], node['split_node']) if node['updated_idx'] < node['split_idx'] else (node['split_node'], node['updated_node'])
                 change_to_original = (int_from_bytes(nodes[0].hash) - int_from_bytes(node['hash']) + self.modulus) % self.modulus
                 change_to_split = int_from_bytes(nodes[1].hash) % self.modulus
+
                 update_node_changes.append((min_idx, change_to_original))
                 update_node_changes.append((min_idx + 1, change_to_split))
+                
+                if 'shifted_nodes' in node:
+                    for i in range(len(node['shifted_nodes'])):
+                        shifted_hash = node['shifted_nodes'][i].hash 
+                        change_remove_hash = (- int_from_bytes(shifted_hash) + self.modulus) % self.modulus
+                        change_add_hash = int_from_bytes(shifted_hash) % self.modulus
+                        update_node_changes.append((node['shifted_idx'][i] - 1, change_remove_hash))
+                        update_node_changes.append((node['shifted_idx'][i], change_add_hash))
             else:
                 update_change = (int_from_bytes(node['updated_node'].hash) - int_from_bytes(node['hash']) + self.modulus) % self.modulus
                 update_node_changes.append((node['updated_idx'], update_change))
@@ -408,7 +425,6 @@ class VerkleBTree:
                 values[i] = int_from_bytes(nodes[i].hash)
                 self.check_valid_tree(nodes[i])
             commitment = self.kzg.compute_commitment_lagrange(values)
-
             assert node.commitment.is_equal(commitment)
             assert node.hash == hash([node.commitment.compress()] + node.keys)
 
@@ -434,7 +450,7 @@ class VerkleBTree:
 if __name__ == "__main__":
     # Parameters
     MODULUS = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
-    WIDTH = 4
+    WIDTH = 16
     PRIMITIVE_ROOT = 7
     SECRET = 8927347823478352432985
 
@@ -442,6 +458,7 @@ if __name__ == "__main__":
     NUMBER_INITIAL_KEYS = 2**13
     NUMBER_ADDED_KEYS = 2**7
     NUMBER_DELETED_KEYS = 2**7
+    KEY_RANGE = 2**256-1
 
     # Generate setup
     kzg_integration = KzgIntegration(MODULUS, WIDTH, PRIMITIVE_ROOT)
@@ -449,8 +466,8 @@ if __name__ == "__main__":
     kzg_utils = kzg_integration.kzg_utils(kzg_setup)
 
     # Generate tree
-    min_degree = WIDTH / 2
-    root_val, root_value = randint(0, 2**256-1), randint(0, 2**256-1)
+    min_degree = int(WIDTH / 2)
+    root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
     root = VerkleBTreeNode([(int_to_bytes(root_val), int_to_bytes(root_value))])
     verkle_btree = VerkleBTree(kzg_setup, kzg_utils, root, min_degree, MODULUS, WIDTH)
 
@@ -458,7 +475,7 @@ if __name__ == "__main__":
 
     values = {}
     for i in range(NUMBER_INITIAL_KEYS):
-        key, value = randint(0, 2**256-1), randint(0, 2**256-1)
+        key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
         verkle_btree.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
     
@@ -479,10 +496,11 @@ if __name__ == "__main__":
 
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
-            key, value = randint(0, 2**256-1), randint(0, 2**256-1)
+            key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
             verkle_btree.upsert_verkle_node(int_to_bytes(key), int_to_bytes(value))
             values[key] = value
         time_y = time()
+
 
         print("Additionally inserted {0} elements in {1:.3f} s".format(NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
 
@@ -491,6 +509,8 @@ if __name__ == "__main__":
         time_b = time()
         
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
+
+
 
     # if NUMBER_DELETED_KEYS > 0:
     #     all_keys = list(values.keys())
