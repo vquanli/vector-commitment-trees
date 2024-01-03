@@ -351,6 +351,7 @@ if __name__ == "__main__":
     NUMBER_INITIAL_KEYS = 2**13
     NUMBER_ADDED_KEYS = 2**7
     NUMBER_DELETED_KEYS = 2**7
+    KEY_RANGE = 2**256-1
 
     # Generate setup
     kzg_integration = KzgIntegration(MODULUS, WIDTH, PRIMITIVE_ROOT)
@@ -358,7 +359,7 @@ if __name__ == "__main__":
     kzg_utils = kzg_integration.kzg_utils(kzg_setup)
 
     # Generate tree
-    root_val, root_value = randint(0, 2**256-1), randint(0, 2**256-1)
+    root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
     root = VerkleBSTNode(int_to_bytes(root_val), int_to_bytes(root_value))
     verkle_bst = VerkleBST(kzg_setup, kzg_utils, root, MODULUS, WIDTH)
 
@@ -366,7 +367,7 @@ if __name__ == "__main__":
 
     values = {}
     for i in range(NUMBER_INITIAL_KEYS):
-        key, value = randint(0, 2**256-1), randint(0, 2**256-1)
+        key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
         verkle_bst.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
     
@@ -387,7 +388,7 @@ if __name__ == "__main__":
 
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
-            key, value = randint(0, 2**256-1), randint(0, 2**256-1)
+            key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
             verkle_bst.upsert_verkle_node(int_to_bytes(key), int_to_bytes(value))
             values[key] = value
         time_y = time()
