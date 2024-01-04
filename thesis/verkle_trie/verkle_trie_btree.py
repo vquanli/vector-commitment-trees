@@ -66,7 +66,9 @@ class KzgIntegration:
 
 
 class VerkleBTreeNode:
-    def __init__(self, keys: list[bytes] = None, values : list[bytes] = None):
+    def __init__(self, node_type: str = 'leaf', keys: list[bytes] = None, values : list[bytes] = None):
+        assert node_type in ['leaf', 'inner']
+        self.node_type = node_type
         self.keys = keys if keys is not None else []
         self.values = values if values is not None else []
         self.children = []
@@ -74,7 +76,7 @@ class VerkleBTreeNode:
         self.commitment = blst.G1().mult(0)
 
     def node_hash(self):
-        if self.is_leaf():
+        if self.node_type == 'leaf':
             self.hash = hash(self.keys + self.values)
         else:
             self.hash = hash([self.commitment.compress()] + self.keys + self.values)
@@ -84,9 +86,6 @@ class VerkleBTreeNode:
 
     def child_count(self):
         return len(self.children)
-
-    def is_leaf(self) -> bool:
-        return self.child_count() == 0
     
     def show_keys(self):
         return [(int_from_bytes(key), int_from_bytes(value)) for key, value in zip(self.keys, self.values)]
@@ -111,7 +110,7 @@ class VerkleBTree:
             raise Exception("Error, Node is full")
         
         idx = key_count - 1
-        if node.is_leaf():
+        if node.node_type == 'leaf':
             while idx >= 0 and key < node.keys[idx]:
                 idx -= 1
             if idx >= 0 and key == node.keys[idx]:
@@ -156,7 +155,7 @@ class VerkleBTree:
         child.keys = child.keys[0 :t - 1]
         child.values = child.values[0 :t - 1]
 
-        if not child.is_leaf():
+        if child.node_type != 'leaf':
             new_node.children = child.children[t: (2 * t)]
             child.children = child.children[0: t]
         
@@ -168,7 +167,7 @@ class VerkleBTree:
         t = self.min_degree
         root = self.root
         if root.key_count() == (2 * t) - 1:
-            new_node = VerkleBTreeNode()
+            new_node = VerkleBTreeNode(node_type='inner')
             self.root = new_node
             new_node.children.insert(0, root)
             self._split_child(new_node, 0)
@@ -185,35 +184,34 @@ class VerkleBTree:
         root = self.root
 
         path = self.find_path_to_node(root, key)
-        last_node, last_idx, last_node_type = path[-1]
+        leaf_node, leaf_idx = path[-1]
+
+        # Update
+        if leaf_idx < leaf_node.key_count() and leaf_node.keys[leaf_idx] == key:
+            old_hash = leaf_node.hash
+            leaf_node.values[leaf_idx] = value
+            leaf_node.node_hash()
+            new_hash = leaf_node.hash
+            value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
         # Insert
-        if last_node_type == 'leaf_node':
+        else:
             splits = [True if path[i][0].key_count() == (2 * t) - 1 else False for i in range(len(path))]
             split_counts = splits.count(True)
 
             if split_counts == 0:
-                old_hash = last_node.hash
+                old_hash = leaf_node.hash
                 self.insert_node(key, value)
-                last_node.node_hash()
-                new_hash = last_node.hash
+                leaf_node.node_hash()
+                new_hash = leaf_node.hash
                 value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
             else:
                 self._insert_verkle_node_splits(key, value, path, splits)
                 return
 
-        # Update
-        elif last_node_type == 'leaf_node_with_key':
-            old_hash = last_node.hash
-            last_node.keys[last_idx] = key
-            last_node.values[last_idx] = value
-            last_node.node_hash()
-            new_hash = last_node.hash
-            value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
-
-        for node, idx, node_type in reversed(path):
-            if node_type == 'leaf_node' or node_type == 'leaf_node_with_key':
+        for node, idx in reversed(path):
+            if node.node_type == 'leaf':
                 continue
             old_hash = node.hash
             if node.commitment is None:
@@ -230,7 +228,8 @@ class VerkleBTree:
         
         update_path = [] 
         for i in range(len(path)):
-            node, idx, node_type = path[i]
+            node, idx = path[i]
+            node_type = node.node_type
             previous_node = path[i - 1][0]
             previous_idx = path[i - 1][1]           
             hash = node.hash
@@ -247,10 +246,10 @@ class VerkleBTree:
                     elif splits[i - 1] and t - 1 > previous_idx:
                         value_dict['shifted_idx'] = [i + 1 for i in range(previous_idx + 1, t)]
 
-                if node_type == 'leaf_node':
+                if node_type == 'leaf':
                     update_path.append(value_dict)
 
-                elif node_type == 'inner_node':
+                elif node_type == 'inner':
                     child_hashes = [node.hash for node in node.children[t: (2 * t)]]
                     value_dict['child_hashes'] = child_hashes
                     update_path.append(value_dict)
@@ -276,14 +275,14 @@ class VerkleBTree:
         update_node_changes = []
         split_node_changes = []
 
-        root_dict = {'node_type': 'root_node', 'updated_node': self.root}
+        root_dict = {'node_type': 'root', 'updated_node': self.root}
         update_path.insert(0, root_dict)
         for node in reversed(update_path):
             
             node['updated_node'].node_hash()
 
             # Changes to current node
-            if node['node_type'] == 'root_node':
+            if node['node_type'] == 'root':
                 if 'split_node' in update_path[1]:
                     self.add_node_hash(node['updated_node'])
                 else:
@@ -291,7 +290,7 @@ class VerkleBTree:
                         node['updated_node'].commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
                         node['updated_node'].node_hash()
                 return
-            if node['node_type'] == 'inner_node':
+            if node['node_type'] == 'inner':
                 if 'split_node' in node:
                     node['split_node'].node_hash()
                     changes_to_original = [(t + i, (- int_from_bytes(node['child_hashes'][i]) + self.modulus) % self.modulus) for i in range(t)]
@@ -355,7 +354,7 @@ class VerkleBTree:
                 i += 1
             if i < key_count and key == node.keys[i]:
                 return (node, i)
-            elif node.is_leaf():
+            elif node.node_type == 'leaf':
                 return None
             else:
                 return self.find_node(node.children[i], key)
@@ -376,15 +375,10 @@ class VerkleBTree:
             i = 0
             while i < key_count and key > node.keys[i]:
                 i += 1
-            if i < key_count and key == node.keys[i]:
-                path.append((node, i, 'leaf_node_with_key'))
+            path.append((node, i))
+            if node.node_type == 'leaf':
                 break
-            elif node.is_leaf():
-                path.append((node, i, 'leaf_node'))
-                break
-            else:
-                path.append((node, i, 'inner_node'))
-                return self.find_path_to_node(node.children[i], key, path)
+            return self.find_path_to_node(node.children[i], key, path)
                 
         return path
     
@@ -398,7 +392,7 @@ class VerkleBTree:
         """
         Add the hash of a node to the node itself
         """
-        if node.is_leaf():
+        if node.node_type == 'leaf':
             node.node_hash()
         else:
             values = {}
@@ -418,7 +412,7 @@ class VerkleBTree:
         Check if the tree is valid
         """
             
-        if node.is_leaf():
+        if node.node_type == 'leaf':
             assert node.hash == hash(node.keys + node.values)
         else:
             values = {}
@@ -472,9 +466,9 @@ if __name__ == "__main__":
     kzg_utils = kzg_integration.kzg_utils(kzg_setup)
 
     # Generate tree
-    min_degree = int(WIDTH / 2)
+    min_degree = WIDTH // 2
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-    root = VerkleBTreeNode([int_to_bytes(root_val)], [int_to_bytes(root_value)])
+    root = VerkleBTreeNode('leaf', [int_to_bytes(root_val)], [int_to_bytes(root_value)])
     verkle_btree = VerkleBTree(kzg_setup, kzg_utils, root, min_degree, MODULUS, WIDTH)
 
     # Insert nodes
