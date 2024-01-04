@@ -100,7 +100,7 @@ class VerkleBTree:
         self.modulus = modulus
         self.width = width
 
-    def _insert(self, node: VerkleBTreeNode, key: bytes, value: bytes, update: bool = False):
+    def _insert(self, node: VerkleBTreeNode, key: bytes, value: bytes, update: bool):
         """
         Insert command for the tree
         """
@@ -132,7 +132,7 @@ class VerkleBTree:
                     self._split_child(node, idx)
                     if key > node.keys[idx]:
                         idx += 1
-                self._insert(node.children[idx], key, value)
+                self._insert(node.children[idx], key, value, update)
             
         return node
 
@@ -161,7 +161,7 @@ class VerkleBTree:
             child.children = child.children[0: t]
         
 
-    def insert_node(self, key: bytes, value: bytes):
+    def insert_node(self, key: bytes, value: bytes, update: bool = False):
         """
         Insert a node into the tree
         """
@@ -172,9 +172,9 @@ class VerkleBTree:
             self.root = new_node
             new_node.children.insert(0, root)
             self._split_child(new_node, 0)
-            self._insert(new_node, key, value)
+            self._insert(new_node, key, value, update)
         else:
-            self._insert(root, key, value)
+            self._insert(root, key, value, update)
     
 
     def upsert_verkle_node(self, key: bytes, value: bytes):
@@ -204,7 +204,7 @@ class VerkleBTree:
                 return
 
         # Update
-        elif last_node_type == 'found_node':
+        elif last_node_type == 'leaf_node_with_key':
             old_hash = last_node.hash
             last_node.keys[last_idx] = key
             last_node.values[last_idx] = value
@@ -213,7 +213,7 @@ class VerkleBTree:
             value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
         for node, idx, node_type in reversed(path):
-            if node_type == 'leaf_node' or node_type == 'found_node':
+            if node_type == 'leaf_node' or node_type == 'leaf_node_with_key':
                 continue
             old_hash = node.hash
             if node.commitment is None:
@@ -377,7 +377,7 @@ class VerkleBTree:
             while i < key_count and key > node.keys[i]:
                 i += 1
             if i < key_count and key == node.keys[i]:
-                path.append((node, i, 'found_node'))
+                path.append((node, i, 'leaf_node_with_key'))
                 break
             elif node.is_leaf():
                 path.append((node, i, 'leaf_node'))

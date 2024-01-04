@@ -90,7 +90,7 @@ class VerkleBST:
         self.modulus = modulus
         self.width = width
 
-    def _insert(self, node: VerkleBSTNode, key: bytes, value: bytes, update: bool = False):
+    def _insert(self, node: VerkleBSTNode, key: bytes, value: bytes, update: bool):
         """
         Insert command for the tree
         """
@@ -102,16 +102,16 @@ class VerkleBST:
             if update:
                 node.value = value
         elif key < node.key:
-            node.left = self._insert(node.left, key, value)
+            node.left = self._insert(node.left, key, value, update)
         elif key > node.key:
-            node.right = self._insert(node.right, key, value)
+            node.right = self._insert(node.right, key, value, update)
         return node
 
-    def insert_node(self, key: bytes, value: bytes):
+    def insert_node(self, key: bytes, value: bytes, update: bool = False):
         """
         Insert a node into the tree
         """
-        self.root = self._insert(self.root, key, value)
+        self.root = self._insert(self.root, key, value, update)
 
     def upsert_verkle_node(self, key: bytes, value: bytes):
         """
@@ -126,7 +126,7 @@ class VerkleBST:
         # Insert
         if last_node is None:
             path.pop()
-            self._insert(path[-1][0], key, value)
+            self._insert(path[-1][0], key, value, update=False)
             new_node = self.find_node(path[-1][0], key)
             new_node.node_hash()
             path.append((new_node, None))
