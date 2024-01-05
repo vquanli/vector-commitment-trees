@@ -66,7 +66,7 @@ class KzgIntegration:
 
 
 class VerkleBTreeNode:
-    def __init__(self, node_type: str = 'leaf', keys: list[bytes] = None, values : list[bytes] = None):
+    def __init__(self, node_type: str = 'leaf', keys: list = None, values: list = None):
         assert node_type in ['leaf', 'inner']
         self.node_type = node_type
         self.keys = keys if keys is not None else []
@@ -222,7 +222,7 @@ class VerkleBTree:
             new_hash = node.hash
             value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
-    def _insert_verkle_node_splits(self, key: bytes, value: bytes, path: list[tuple], splits: list[bool]):
+    def _insert_verkle_node_splits(self, key: bytes, value: bytes, path: list, splits: list):
         
         t = self.min_degree
         
@@ -361,7 +361,7 @@ class VerkleBTree:
         
         return None
 
-    def find_path_to_node(self, node: VerkleBTreeNode, key: bytes, path: list[tuple] = None) -> list[tuple]:
+    def find_path_to_node(self, node: VerkleBTreeNode, key: bytes, path: list = None) -> list:
         """
         Returns the path from node to a node with key with the last element being none if the node does not exist
         """
