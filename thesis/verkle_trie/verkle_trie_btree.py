@@ -458,10 +458,10 @@ if __name__ == "__main__":
     SECRET = 8927347823478352432985
 
     # Number of keys to insert, delete, and add
-    NUMBER_INITIAL_KEYS = 2**6
-    NUMBER_ADDED_KEYS = 2**12
-    NUMBER_DELETED_KEYS = 2**12
-    KEY_RANGE = 2**4
+    NUMBER_INITIAL_KEYS = 2**13
+    NUMBER_ADDED_KEYS = 2**7
+    NUMBER_DELETED_KEYS = 2**7
+    KEY_RANGE = 2**256-1
 
     # Generate setup
     kzg_integration = KzgIntegration(MODULUS, WIDTH, PRIMITIVE_ROOT)
