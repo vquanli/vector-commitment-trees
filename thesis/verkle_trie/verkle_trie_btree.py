@@ -250,7 +250,7 @@ class VerkleBTree:
                 if node_type == 'inner':
                     child_hashes = [node.hash for node in node.children[t: (2 * t)]]
                     value_dict['child_hashes'] = child_hashes
-                    path[i] = (node, idx % t, node_type)
+                    path[i] = (node, idx % t)
             else:
                 if i == 0:
                     continue
