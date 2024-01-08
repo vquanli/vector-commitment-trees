@@ -262,9 +262,9 @@ class VerkleBTree:
         current_node = self.root
         for node in update_path:
             node['updated_node'] = current_node.children[node['updated_idx']]
-            if node.get('split_idx'):
+            if node.get('split_idx') is not None:
                 node['split_node'] = current_node.children[node['split_idx']]
-            if node.get('shifted_idx'):
+            if node.get('shifted_idx') is not None:
                 node['shifted_nodes'] = [current_node.children[i] for i in node['shifted_idx']]
             current_node = node['updated_node']
 
@@ -279,7 +279,7 @@ class VerkleBTree:
 
             # Changes to current node
             if node['node_type'] == 'root':
-                if update_path[1].get('split_node'):
+                if update_path[1].get('split_node') is not None:
                     self.add_node_hash(node['updated_node'])
                 else:
                     for idx, value_change in update_node_changes:
@@ -287,7 +287,7 @@ class VerkleBTree:
                         node['updated_node'].node_hash()
                 return
             if node['node_type'] == 'inner':
-                if node.get('split_node'):
+                if node.get('split_node') is not None:
                     node['split_node'].node_hash()
                     changes_to_original = [(t + i, (- int_from_bytes(node['child_hashes'][i]) + self.modulus) % self.modulus) for i in range(t)]
                     changes_to_split = [(i, int_from_bytes(node['child_hashes'][i]) % self.modulus) for i in range(t)]
@@ -314,7 +314,7 @@ class VerkleBTree:
                 update_node_changes = []
 
             # Changes to next node
-            if node.get('split_node'):
+            if node.get('split_node') is not None:
                 node['split_node'].node_hash()
                 min_idx = min(node['updated_idx'], node['split_idx'])
                 nodes = (node['updated_node'], node['split_node']) if node['updated_idx'] < node['split_idx'] else (node['split_node'], node['updated_node'])
@@ -324,7 +324,7 @@ class VerkleBTree:
                 update_node_changes.append((min_idx, change_to_original))
                 update_node_changes.append((min_idx + 1, change_to_split))
                 
-                if node.get('shifted_nodes'):
+                if node.get('shifted_nodes') is not None:
                     for i in range(len(node['shifted_nodes'])):
                         shifted_hash = node['shifted_nodes'][i].hash 
                         change_remove_hash = (- int_from_bytes(shifted_hash) + self.modulus) % self.modulus
