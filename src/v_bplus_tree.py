@@ -64,7 +64,7 @@ class KzgIntegration:
         return KzgUtils(self.modulus, self.width, domain, setup, primefield)
   
 
-class VerkleBPlusTreeNode:
+class VBPlusTreeNode:
     def __init__(self, node_type: str = 'leaf', keys: list = None, values: list = None):
         self.node_type = node_type
         self.parent = None
@@ -106,8 +106,8 @@ class VerkleBPlusTreeNode:
         elif self.node_type == 'inner':
             return [int_from_bytes(key) for key in self.keys]
 
-class VerkleBPlusTree:
-    def __init__(self, setup: dict, kzg: KzgUtils, root: VerkleBPlusTreeNode, min_degree: int, modulus: int, width: int):
+class VBPlusTree:
+    def __init__(self, setup: dict, kzg: KzgUtils, root: VBPlusTreeNode, min_degree: int, modulus: int, width: int):
         self.setup = setup
         self.kzg = kzg
         self.root = root
@@ -136,7 +136,7 @@ class VerkleBPlusTree:
 
         if node.key_count() > (2 * t) - 1:
             if parent_path is None:
-                new_node = VerkleBPlusTreeNode(node_type='inner')
+                new_node = VBPlusTreeNode(node_type='inner')
                 self.root = new_node
                 new_node.children.insert(0, node)
                 parent_path = (new_node, 0)
@@ -149,13 +149,13 @@ class VerkleBPlusTree:
             self._insert(path, key, value)
             
 
-    def _split_node(self, node: VerkleBPlusTreeNode, node_type: str, parent_node: VerkleBPlusTreeNode, split_idx: int):
+    def _split_node(self, node: VBPlusTreeNode, node_type: str, parent_node: VBPlusTreeNode, split_idx: int):
         """
         Split a child node
         """
         t = self.min_degree
 
-        new_node = VerkleBPlusTreeNode(node_type=node_type)
+        new_node = VBPlusTreeNode(node_type=node_type)
 
         if node_type == 'leaf':
             new_node.keys = node.keys[t:]
@@ -191,7 +191,7 @@ class VerkleBPlusTree:
         else:
             self._insert(path_to_leaf, key, value)
 
-    def upsert_verkle_node(self, key: bytes, value: bytes):
+    def upsert_vc_node(self, key: bytes, value: bytes):
         """
         Insert a node into the tree
         """
@@ -217,7 +217,7 @@ class VerkleBPlusTree:
                 new_hash = leaf_node.hash
                 value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
             else:
-                self._insert_verkle_node_splits(key, value, path)
+                self._insert_vc_node_splits(key, value, path)
                 return
 
         for node, idx in reversed(path):
@@ -232,7 +232,7 @@ class VerkleBPlusTree:
             new_hash = node.hash
             value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
-    def _insert_verkle_node_splits(self, key: bytes, value: bytes, path: list):
+    def _insert_vc_node_splits(self, key: bytes, value: bytes, path: list):
         
         t = self.min_degree
         idx_for_split = next((i for i, (node, _) in enumerate(reversed(path)) if node.key_count() != (2 * t) - 1), len(path))
@@ -458,7 +458,7 @@ class VerkleBPlusTree:
                 update_node_changes.append((node['updated_idx'], update_change))
 
 
-    def find_node(self, node: VerkleBPlusTreeNode, key: bytes):
+    def find_node(self, node: VBPlusTreeNode, key: bytes):
         """
         Search for a node in the tree
         """
@@ -478,7 +478,7 @@ class VerkleBPlusTree:
         
         return None
 
-    def find_path_to_leaf(self, node: VerkleBPlusTreeNode, key: bytes, path: list = None) -> list:
+    def find_path_to_leaf(self, node: VBPlusTreeNode, key: bytes, path: list = None) -> list:
         """
         Returns the path from node to a node with key with the last element being none if the node does not exist
         """
@@ -508,7 +508,7 @@ class VerkleBPlusTree:
             print(node, [(int_from_bytes(key), int_from_bytes(value)) for key, value in zip(node.keys, node.value)], idx)
                 
 
-    def add_node_hash(self, node: VerkleBPlusTreeNode):
+    def add_node_hash(self, node: VBPlusTreeNode):
         """
         Add the hash of a node to the node itself
         """
@@ -527,7 +527,7 @@ class VerkleBPlusTree:
             node.node_hash()
 
     
-    def check_valid_tree(self, node: VerkleBPlusTreeNode):
+    def check_valid_tree(self, node: VBPlusTreeNode):
         """
         Check if the tree is valid
         """
@@ -590,28 +590,28 @@ if __name__ == "__main__":
     # Generate tree
     min_degree = WIDTH // 2
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-    root = VerkleBPlusTreeNode('leaf', [int_to_bytes(root_val)], [int_to_bytes(root_value)])
-    verkle_btree = VerkleBPlusTree(kzg_setup, kzg_utils, root, min_degree, MODULUS, WIDTH)
+    root = VBPlusTreeNode('leaf', [int_to_bytes(root_val)], [int_to_bytes(root_value)])
+    v_bplus_tree = VBPlusTree(kzg_setup, kzg_utils, root, min_degree, MODULUS, WIDTH)
 
     # Insert nodes
 
     values = {}
     for i in range(NUMBER_INITIAL_KEYS):
         key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-        verkle_btree.insert_node(int_to_bytes(key), int_to_bytes(value))
+        v_bplus_tree.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
     
     print("Inserted {0} elements".format(NUMBER_INITIAL_KEYS), file=sys.stderr)
 
     time_a = time()
-    verkle_btree.add_node_hash(verkle_btree.root)
+    v_bplus_tree.add_node_hash(v_bplus_tree.root)
     time_b = time()
 
     print("Computed verkle root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
 
     if NUMBER_ADDED_KEYS > 0:
         time_a = time()
-        verkle_btree.check_valid_tree(verkle_btree.root)
+        v_bplus_tree.check_valid_tree(v_bplus_tree.root)
         time_b = time()
 
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
@@ -619,7 +619,7 @@ if __name__ == "__main__":
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
             key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-            verkle_btree.upsert_verkle_node(int_to_bytes(key), int_to_bytes(value))
+            v_bplus_tree.upsert_vc_node(int_to_bytes(key), int_to_bytes(value))
             values[key] = value
         time_y = time()
 
@@ -627,7 +627,7 @@ if __name__ == "__main__":
         print("Additionally inserted {0} elements in {1:.3f} s".format(NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
 
         time_a = time()
-        verkle_btree.check_valid_tree(verkle_btree.root)
+        v_bplus_tree.check_valid_tree(v_bplus_tree.root)
         time_b = time()
         
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
@@ -642,14 +642,14 @@ if __name__ == "__main__":
 
     #     time_a = time()
     #     for key in keys_to_delete:
-    #         verkle_btree.delete_verkle_node(int_to_bytes(key))
+    #         v_bplus_tree.delete_vc_node(int_to_bytes(key))
     #         del values[key]
     #     time_b = time()
         
     #     print("Deleted {0} elements in {1:.3f} s".format(NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
 
     #     time_a = time()
-    #     verkle_btree.check_valid_tree(verkle_btree.root)
+    #     v_bplus_tree.check_valid_tree(v_bplus_tree.root)
     #     time_b = time()
         
     #     print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
