@@ -361,27 +361,27 @@ if __name__ == "__main__":
     # Generate tree
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
     root = VBSTNode(int_to_bytes(root_val), int_to_bytes(root_value))
-    vbst = VBST(kzg_setup, kzg_utils, root, MODULUS, WIDTH)
+    v_bst = VBST(kzg_setup, kzg_utils, root, MODULUS, WIDTH)
 
     # Insert nodes
 
     values = {}
     for i in range(NUMBER_INITIAL_KEYS):
         key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-        vbst.insert_node(int_to_bytes(key), int_to_bytes(value))
+        v_bst.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
     
     print("Inserted {0} elements".format(NUMBER_INITIAL_KEYS), file=sys.stderr)
 
     time_a = time()
-    vbst.add_node_hash(vbst.root)
+    v_bst.add_node_hash(v_bst.root)
     time_b = time()
 
     print("Computed verkle root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
 
     if NUMBER_ADDED_KEYS > 0:
         time_a = time()
-        vbst.check_valid_tree(vbst.root)
+        v_bst.check_valid_tree(v_bst.root)
         time_b = time()
 
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
@@ -389,14 +389,14 @@ if __name__ == "__main__":
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
             key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-            vbst.upsert_vc_node(int_to_bytes(key), int_to_bytes(value))
+            v_bst.upsert_vc_node(int_to_bytes(key), int_to_bytes(value))
             values[key] = value
         time_y = time()
 
         print("Additionally inserted {0} elements in {1:.3f} s".format(NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
 
         time_a = time()
-        vbst.check_valid_tree(root)
+        v_bst.check_valid_tree(root)
         time_b = time()
         
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
@@ -409,14 +409,14 @@ if __name__ == "__main__":
 
         time_a = time()
         for key in keys_to_delete:
-            vbst.delete_vc_node(int_to_bytes(key))
+            v_bst.delete_vc_node(int_to_bytes(key))
             del values[key]
         time_b = time()
         
         print("Deleted {0} elements in {1:.3f} s".format(NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
 
         time_a = time()
-        vbst.check_valid_tree(root)
+        v_bst.check_valid_tree(root)
         time_b = time()
         
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
