@@ -63,7 +63,7 @@ class KzgIntegration:
         return KzgUtils(self.modulus, self.width, domain, setup, primefield)
 
 
-class VerkleBSTNode(object):
+class VBSTNode(object):
     def __init__(self, key: bytes, value: bytes):
         self.value = value
         self.key = key
@@ -82,21 +82,21 @@ class VerkleBSTNode(object):
         return self.left is None and self.right is None
 
 
-class VerkleBST:
-    def __init__(self, setup: dict, kzg: KzgUtils, root: VerkleBSTNode, modulus: int, width: int):
+class VBST:
+    def __init__(self, setup: dict, kzg: KzgUtils, root: VBSTNode, modulus: int, width: int):
         self.setup = setup
         self.kzg = kzg
         self.root = root
         self.modulus = modulus
         self.width = width
 
-    def _insert(self, node: VerkleBSTNode, key: bytes, value: bytes, update: bool):
+    def _insert(self, node: VBSTNode, key: bytes, value: bytes, update: bool):
         """
         Insert command for the tree
         """
 
         if node is None:
-            return VerkleBSTNode(key, value)
+            return VBSTNode(key, value)
 
         if key == node.key:
             if update:
@@ -113,7 +113,7 @@ class VerkleBST:
         """
         self.root = self._insert(self.root, key, value, update)
 
-    def upsert_verkle_node(self, key: bytes, value: bytes):
+    def upsert_vc_node(self, key: bytes, value: bytes):
         """
         Insert or update a node in the tree and update the hashes/commitments
         """
@@ -153,7 +153,7 @@ class VerkleBST:
             new_hash = node.hash
             value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
-    def delete_verkle_node(self, key: bytes):
+    def delete_vc_node(self, key: bytes):
         """
         Delete a node in the tree and update the hashes/commitments
         """
@@ -223,7 +223,7 @@ class VerkleBST:
             new_hash = node.hash
             value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
-    def find_min(self, node: VerkleBSTNode):
+    def find_min(self, node: VBSTNode):
         """
         Find the minimum node in the tree
         """
@@ -231,7 +231,7 @@ class VerkleBST:
             node = node.left
         return node
 
-    def find_node(self, node: VerkleBSTNode, key: bytes):
+    def find_node(self, node: VBSTNode, key: bytes):
         """
         Search for a node in the tree
         """
@@ -244,7 +244,7 @@ class VerkleBST:
                 node = node.right
         return None
 
-    def find_path_to_node(self, node: VerkleBSTNode, key: bytes):
+    def find_path_to_node(self, node: VBSTNode, key: bytes):
         """
         Returns the path from node to a node with key with the last element being none if the node does not exist
         """
@@ -265,7 +265,7 @@ class VerkleBST:
 
         return path
 
-    def add_node_hash(self, node: VerkleBSTNode):
+    def add_node_hash(self, node: VBSTNode):
         """
         Add the hash of a node to the node itself
         """
@@ -285,7 +285,7 @@ class VerkleBST:
             node.commitment = commitment
             node.node_hash()
 
-    def check_valid_tree(self, node: VerkleBSTNode):
+    def check_valid_tree(self, node: VBSTNode):
         """
         Check if the tree is valid
         """
@@ -308,7 +308,7 @@ class VerkleBST:
             assert node.commitment.is_equal(commitment)
             assert node.hash == hash([node.commitment.compress(), node.key, node.value])
 
-    def inorder_traversal(self, node: VerkleBSTNode, order: list = None):
+    def inorder_traversal(self, node: VBSTNode, order: list = None):
         """
         Inorder traversal of the tree
         """
@@ -360,28 +360,28 @@ if __name__ == "__main__":
 
     # Generate tree
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-    root = VerkleBSTNode(int_to_bytes(root_val), int_to_bytes(root_value))
-    verkle_bst = VerkleBST(kzg_setup, kzg_utils, root, MODULUS, WIDTH)
+    root = VBSTNode(int_to_bytes(root_val), int_to_bytes(root_value))
+    vbst = VBST(kzg_setup, kzg_utils, root, MODULUS, WIDTH)
 
     # Insert nodes
 
     values = {}
     for i in range(NUMBER_INITIAL_KEYS):
         key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-        verkle_bst.insert_node(int_to_bytes(key), int_to_bytes(value))
+        vbst.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
     
     print("Inserted {0} elements".format(NUMBER_INITIAL_KEYS), file=sys.stderr)
 
     time_a = time()
-    verkle_bst.add_node_hash(verkle_bst.root)
+    vbst.add_node_hash(vbst.root)
     time_b = time()
 
     print("Computed verkle root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
 
     if NUMBER_ADDED_KEYS > 0:
         time_a = time()
-        verkle_bst.check_valid_tree(verkle_bst.root)
+        vbst.check_valid_tree(vbst.root)
         time_b = time()
 
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
@@ -389,14 +389,14 @@ if __name__ == "__main__":
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
             key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-            verkle_bst.upsert_verkle_node(int_to_bytes(key), int_to_bytes(value))
+            vbst.upsert_vc_node(int_to_bytes(key), int_to_bytes(value))
             values[key] = value
         time_y = time()
 
         print("Additionally inserted {0} elements in {1:.3f} s".format(NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
 
         time_a = time()
-        verkle_bst.check_valid_tree(root)
+        vbst.check_valid_tree(root)
         time_b = time()
         
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
@@ -409,14 +409,14 @@ if __name__ == "__main__":
 
         time_a = time()
         for key in keys_to_delete:
-            verkle_bst.delete_verkle_node(int_to_bytes(key))
+            vbst.delete_vc_node(int_to_bytes(key))
             del values[key]
         time_b = time()
         
         print("Deleted {0} elements in {1:.3f} s".format(NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
 
         time_a = time()
-        verkle_bst.check_valid_tree(root)
+        vbst.check_valid_tree(root)
         time_b = time()
         
         print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
