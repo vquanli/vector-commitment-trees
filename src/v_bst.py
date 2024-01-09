@@ -377,7 +377,7 @@ if __name__ == "__main__":
     v_bst.add_node_hash(v_bst.root)
     time_b = time()
 
-    print("Computed verkle root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
+    print("Computed VBST root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
 
     if NUMBER_ADDED_KEYS > 0:
         time_a = time()
