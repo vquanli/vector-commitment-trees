@@ -275,11 +275,11 @@ class VerkleBPlusTree:
                         else:
                             value_dict['branch_idx'] = value_dict['split_idx']
                             del value_dict['split_idx']
-                            if idx < t and value_dict.get('shifted_idx'):
-                                value_dict['branch_shifted_idx'] = value_dict['shifted_idx']
-                                del value_dict['shifted_idx']
                             if idx != t:
                                 value_dict['branch_stop'] = True
+                                if idx < t and value_dict.get('shifted_idx') is not None:
+                                    value_dict['branch_shifted_idx'] = value_dict['shifted_idx']
+                                    del value_dict['shifted_idx']
 
 
                 if node_type == 'inner':
@@ -288,11 +288,17 @@ class VerkleBPlusTree:
                     else:
                         child_hashes = [node.hash for node in node.children[t:]]
                     value_dict['child_hashes'] = child_hashes
-                    if value_dict.get('branch_idx') is not None:
-                        if path[i + 1][1] < t and value_dict.get('branch_stop') is None:
+                    if value_dict.get('branch_idx') is not None and value_dict.get('branch_stop') is None:
+                        end_of_branch = i
+                        while path[end_of_branch][1] == t and end_of_branch < len(path) - 1:
+                            end_of_branch += 1
+                        if path[end_of_branch][1] < t:
                             branch_idx = value_dict['branch_idx']
                             value_dict['branch_idx'] = value_dict['updated_idx']
                             value_dict['updated_idx'] = branch_idx
+                            if value_dict.get('shifted_idx') is not None:
+                                value_dict['branch_shifted_idx'] = value_dict['shifted_idx']
+                                del value_dict['shifted_idx']
 
             else:
                 if i == 0:
@@ -335,6 +341,10 @@ class VerkleBPlusTree:
         for node in reversed(update_path):
             
             node['updated_node'].node_hash()
+
+            if node.get('branch_stop') and len(branch_node_changes) > 0:
+                update_node_changes.extend(branch_node_changes)
+                branch_node_changes = []
 
             # Changes to current node
             if node['node_type'] == 'root':
@@ -411,14 +421,6 @@ class VerkleBPlusTree:
 
                     update_node_changes.append((min_idx, change_to_original))
                     update_node_changes.append((min_idx + 1, change_to_split))
-                
-                if node.get('shifted_nodes') is not None:
-                    for i in range(len(node['shifted_nodes'])):
-                        shifted_hash = node['shifted_nodes'][i].hash 
-                        change_remove_hash = (- int_from_bytes(shifted_hash) + self.modulus) % self.modulus
-                        change_add_hash = int_from_bytes(shifted_hash) % self.modulus
-                        update_node_changes.append((node['shifted_idx'][i] - 1, change_remove_hash))
-                        update_node_changes.append((node['shifted_idx'][i], change_add_hash))
 
                 if node.get('branch_node') is not None:
                     node['branch_node'].node_hash()
@@ -434,6 +436,14 @@ class VerkleBPlusTree:
                     else:
                         update_node_changes.append((node['updated_idx'], change_to_branch))
                         branch_node_changes.append((node['branch_idx'], change_to_original))
+            
+                if node.get('shifted_nodes') is not None:
+                    for i in range(len(node['shifted_nodes'])):
+                        shifted_hash = node['shifted_nodes'][i].hash 
+                        change_remove_hash = (- int_from_bytes(shifted_hash) + self.modulus) % self.modulus
+                        change_add_hash = int_from_bytes(shifted_hash) % self.modulus
+                        update_node_changes.append((node['shifted_idx'][i] - 1, change_remove_hash))
+                        update_node_changes.append((node['shifted_idx'][i], change_add_hash))
 
                 if node.get('branch_shifted_nodes') is not None:
                     for i in range(len(node['branch_shifted_nodes'])):
@@ -562,7 +572,7 @@ class VerkleBPlusTree:
 if __name__ == "__main__":
     # Parameters
     MODULUS = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
-    WIDTH = 8
+    WIDTH = 4
     PRIMITIVE_ROOT = 7
     SECRET = 8927347823478352432985
 
@@ -570,7 +580,7 @@ if __name__ == "__main__":
     NUMBER_INITIAL_KEYS = 2**8
     NUMBER_ADDED_KEYS = 2**12
     NUMBER_DELETED_KEYS = 2**12
-    KEY_RANGE = 2**8
+    KEY_RANGE = 2**32
 
     # Generate setup
     kzg_integration = KzgIntegration(MODULUS, WIDTH, PRIMITIVE_ROOT)
