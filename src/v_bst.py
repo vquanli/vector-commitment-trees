@@ -223,7 +223,7 @@ class VBST:
             new_hash = node.hash
             value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
-    def find_min(self, node: VBSTNode):
+    def find_min(self, node: VBSTNode) -> VBSTNode:
         """
         Find the minimum node in the tree
         """
@@ -231,7 +231,7 @@ class VBST:
             node = node.left
         return node
 
-    def find_node(self, node: VBSTNode, key: bytes):
+    def find_node(self, node: VBSTNode, key: bytes) -> VBSTNode:
         """
         Search for a node in the tree
         """
@@ -244,7 +244,7 @@ class VBST:
                 node = node.right
         return None
 
-    def find_path_to_node(self, node: VBSTNode, key: bytes):
+    def find_path_to_node(self, node: VBSTNode, key: bytes) -> list:
         """
         Returns the path from node to a node with key with the last element being none if the node does not exist
         """
@@ -308,7 +308,27 @@ class VBST:
             assert node.commitment.is_equal(commitment)
             assert node.hash == hash([node.commitment.compress(), node.key, node.value])
 
-    def inorder_traversal(self, node: VBSTNode, order: list = None):
+
+    def tree_structure(self, node, level: int = 0, prefix: str = "Root", structure: list = None):
+        """
+        Print the tree in order
+        """
+
+        if structure is None:
+            structure = []
+
+        if node is not None:
+            self.tree_structure(node.left, level + 1, "L", structure)
+            info = {"position": " " * level * 2 + prefix + str(level),
+                    "key": int_from_bytes(node.key),
+                    "value": int_from_bytes(node.value)}
+            structure.append(info)
+            self.tree_structure(node.right, level + 1, "R", structure)
+
+        return structure
+    
+
+    def inorder_traversal(self, node: VBSTNode, order: list = None) -> list:
         """
         Inorder traversal of the tree
         """
@@ -321,24 +341,6 @@ class VBST:
             self.inorder_traversal(node.right, order)
 
         return order
-
-    def inorder_tree_structure(self, node, level: int = 0, prefix: str = "Root", structure: list = None):
-        """
-        Print the tree in order
-        """
-
-        if structure is None:
-            structure = []
-
-        if node is not None:
-            self.inorder_tree_structure(node.left, level + 1, "L", structure)
-            info = {"position": " " * level * 2 + prefix + str(level),
-                    "key": int_from_bytes(node.key),
-                    "value": int_from_bytes(node.value)}
-            structure.append(info)
-            self.inorder_tree_structure(node.right, level + 1, "R", structure)
-
-        return structure
 
 if __name__ == "__main__":
     # Parameters
