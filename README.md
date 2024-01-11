@@ -10,19 +10,23 @@ Python version used: Python 3.9.5
 
 On Mac you will need to Xcode installed (link)[https://apps.apple.com/us/app/xcode/id497799835?mt=12]
 
+
 You will need to install `blst` found in the `\blst` directory
 
 Run `dos2unix blst/build.sh && bash blst/build.sh`
 
 This will generate a `libblst.a` file in the `blst\bindings` folder
 
+
 Now you will need `swig` installed 
 
 Run `sudo apt-get install swig` or `brew install swig` (on MacOS)
 
+
 After installing `swig` you need to compile the `blst.py` python file
 
 Run `python blst\bindings\python\run.me`
+
 
 Now you will have a `blst.py` and `_blst.so` file in `blst\bindings\python`
 
