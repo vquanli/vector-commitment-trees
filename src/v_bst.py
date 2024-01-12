@@ -87,12 +87,11 @@ class VBSTNode(object):
 
 
 class VBST:
-    def __init__(self, kzg: KzgIntegration, root: VBSTNode, modulus: int, width: int):
+    def __init__(self, kzg: KzgIntegration, root: VBSTNode):
         self.kzg = kzg.kzg_utils()
         self.setup = kzg.setup
         self.root = root
-        self.modulus = modulus
-        self.width = width
+        self.modulus = kzg.modulus
 
     def _insert(self, node: VBSTNode, key: bytes, value: bytes, update: bool):
         """
@@ -375,7 +374,7 @@ if __name__ == "__main__":
     # Generate tree
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
     root = VBSTNode(int_to_bytes(root_val), int_to_bytes(root_value))
-    v_bst = VBST(kzg_integration, root, MODULUS, WIDTH)
+    v_bst = VBST(kzg_integration, root)
 
     # Insert nodes
 

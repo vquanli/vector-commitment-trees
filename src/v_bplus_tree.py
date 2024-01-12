@@ -110,13 +110,14 @@ class VBPlusTreeNode:
 
 
 class VBPlusTree:
-    def __init__(self, kzg: KzgIntegration, root: VBPlusTreeNode, min_degree: int, modulus: int, width: int):
+    def __init__(self, kzg: KzgIntegration, root: VBPlusTreeNode):
         self.kzg = kzg.kzg_utils()
         self.setup = kzg.setup
         self.root = root
-        self.min_degree = min_degree if min_degree > 2 else 2
-        self.modulus = modulus
-        self.width = width
+        assert kzg.width // 2 >= 2
+        self.min_degree = kzg.width // 2
+        self.modulus = kzg.modulus
+        self.width = kzg.width
 
     def _insert(self, path: list, key: bytes, value: bytes):
         """
@@ -629,12 +630,10 @@ if __name__ == "__main__":
     kzg_integration = KzgIntegration(SECRET, MODULUS, WIDTH, PRIMITIVE_ROOT)
 
     # Generate tree
-    min_degree = WIDTH // 2
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
     root = VBPlusTreeNode('leaf', [int_to_bytes(root_val)], [
                           int_to_bytes(root_value)])
-    v_bplus_tree = VBPlusTree(kzg_integration, root,
-                              min_degree, MODULUS, WIDTH)
+    v_bplus_tree = VBPlusTree(kzg_integration, root)
 
     # Insert nodes
 
