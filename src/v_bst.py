@@ -44,7 +44,8 @@ class KzgIntegration:
         self.width = width
         assert pow(primitive_root, (modulus - 1) // width, modulus) != 1
         assert pow(primitive_root, modulus - 1, modulus) == 1
-        self.root_of_unity = pow(primitive_root, (modulus - 1) // width, modulus)
+        self.root_of_unity = pow(
+            primitive_root, (modulus - 1) // width, modulus)
         self.setup = self._generate_setup(width, secret)
 
     def _generate_setup(self, size, secret):
@@ -60,7 +61,8 @@ class KzgIntegration:
 
     def kzg_utils(self):
         primefield = PrimeField(self.modulus, self.width)
-        domain = [pow(self.root_of_unity, i, self.modulus) for i in range(self.width)]
+        domain = [pow(self.root_of_unity, i, self.modulus)
+                  for i in range(self.width)]
         return KzgUtils(self.modulus, self.width, domain, self.setup, primefield)
 
 
@@ -77,7 +79,8 @@ class VBSTNode(object):
         if self.is_leaf():
             self.hash = hash([self.key, self.value])
         else:
-            self.hash = hash([self.commitment.compress(), self.key, self.value])
+            self.hash = hash(
+                [self.commitment.compress(), self.key, self.value])
 
     def is_leaf(self) -> bool:
         return self.left is None and self.right is None
@@ -139,7 +142,8 @@ class VBST:
             last_node.value = value
             last_node.node_hash()
             new_hash = last_node.hash
-            value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
+            value_change = (int_from_bytes(
+                new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
         for node, edge in reversed(path):
             if edge is None:
@@ -149,10 +153,12 @@ class VBST:
             if node.commitment is None:
                 self.add_node_hash(node)
             else:
-                node.commitment.add(self.setup["g1_lagrange"][edge].dup().mult(value_change))
+                node.commitment.add(
+                    self.setup["g1_lagrange"][edge].dup().mult(value_change))
                 node.node_hash()
             new_hash = node.hash
-            value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
+            value_change = (int_from_bytes(
+                new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
     def delete_vc_node(self, key: bytes):
         """
@@ -164,7 +170,8 @@ class VBST:
         if node is None:
             return
 
-        children = sum(1 for child in [node.left, node.right] if child is not None)
+        children = sum(1 for child in [
+                       node.left, node.right] if child is not None)
 
         # Leaf node
         if children == 0:
@@ -176,21 +183,24 @@ class VBST:
                 node_to_update.left = None
             elif path[-1][1] == 1:
                 node_to_update.right = None
-            value_change = (- int_from_bytes(node_to_delete.hash) + self.modulus) % self.modulus
+            value_change = (- int_from_bytes(node_to_delete.hash) +
+                            self.modulus) % self.modulus
             del node_to_delete
 
         # Parent with only child
         elif children == 1:
             path = self.find_path_to_node(root, key)
             node_to_delete = path[-1][0]
-            node_to_pullup = next(child for child in [node_to_delete.left, node_to_delete.right] if child is not None)
+            node_to_pullup = next(child for child in [
+                                  node_to_delete.left, node_to_delete.right] if child is not None)
             path.pop()
             node_to_update = path[-1][0]
             if path[-1][1] == 0:
                 node_to_update.left = node_to_pullup
             elif path[-1][1] == 1:
                 node_to_update.right = node_to_pullup
-            value_change = (int_from_bytes(node_to_pullup.hash) - int_from_bytes(node_to_delete.hash) + self.modulus) % self.modulus
+            value_change = (int_from_bytes(node_to_pullup.hash) -
+                            int_from_bytes(node_to_delete.hash) + self.modulus) % self.modulus
             del node_to_delete
 
         # Parent with two children
@@ -208,7 +218,8 @@ class VBST:
                 node_to_update.right = node_to_delete.right
 
             if node_to_delete.is_leaf():
-                value_change = (- int_from_bytes(node_to_delete.hash) + self.modulus) % self.modulus
+                value_change = (- int_from_bytes(node_to_delete.hash) +
+                                self.modulus) % self.modulus
             else:
                 value_change = (int_from_bytes(node_to_delete.right.hash) - int_from_bytes(node_to_delete.hash)
                                 + self.modulus) % self.modulus
@@ -219,10 +230,12 @@ class VBST:
             if node.commitment is None:
                 self.add_node_hash(node)
             else:
-                node.commitment.add(self.setup["g1_lagrange"][edge].dup().mult(value_change))
+                node.commitment.add(
+                    self.setup["g1_lagrange"][edge].dup().mult(value_change))
                 node.node_hash()
             new_hash = node.hash
-            value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
+            value_change = (int_from_bytes(
+                new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
     def find_min(self, node: VBSTNode) -> VBSTNode:
         """
@@ -307,8 +320,8 @@ class VBST:
             commitment = self.kzg.compute_commitment_lagrange(values)
 
             assert node.commitment.is_equal(commitment)
-            assert node.hash == hash([node.commitment.compress(), node.key, node.value])
-
+            assert node.hash == hash(
+                [node.commitment.compress(), node.key, node.value])
 
     def tree_structure(self, node, level: int = 0, prefix: str = "Root", structure: list = None):
         """
@@ -327,7 +340,6 @@ class VBST:
             self.tree_structure(node.right, level + 1, "R", structure)
 
         return structure
-    
 
     def inorder_traversal(self, node: VBSTNode, order: list = None) -> list:
         """
@@ -342,6 +354,7 @@ class VBST:
             self.inorder_traversal(node.right, order)
 
         return order
+
 
 if __name__ == "__main__":
     # Parameters
@@ -371,21 +384,23 @@ if __name__ == "__main__":
         key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
         v_bst.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
-    
+
     print("Inserted {0} elements".format(NUMBER_INITIAL_KEYS), file=sys.stderr)
 
     time_a = time()
     v_bst.add_node_hash(v_bst.root)
     time_b = time()
 
-    print("Computed VBST root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
+    print("Computed VBST root in {0:.3f} s".format(
+        time_b - time_a), file=sys.stderr)
 
     if NUMBER_ADDED_KEYS > 0:
         time_a = time()
         v_bst.check_valid_tree(v_bst.root)
         time_b = time()
 
-        print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
+        print("[Checked tree valid: {0:.3f} s]".format(
+            time_b - time_a), file=sys.stderr)
 
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
@@ -394,13 +409,15 @@ if __name__ == "__main__":
             values[key] = value
         time_y = time()
 
-        print("Additionally inserted {0} elements in {1:.3f} s".format(NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
+        print("Additionally inserted {0} elements in {1:.3f} s".format(
+            NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
 
         time_a = time()
         v_bst.check_valid_tree(root)
         time_b = time()
-        
-        print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
+
+        print("[Checked tree valid: {0:.3f} s]".format(
+            time_b - time_a), file=sys.stderr)
 
     if NUMBER_DELETED_KEYS > 0:
         all_keys = list(values.keys())
@@ -413,14 +430,13 @@ if __name__ == "__main__":
             v_bst.delete_vc_node(int_to_bytes(key))
             del values[key]
         time_b = time()
-        
-        print("Deleted {0} elements in {1:.3f} s".format(NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
+
+        print("Deleted {0} elements in {1:.3f} s".format(
+            NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
 
         time_a = time()
         v_bst.check_valid_tree(root)
         time_b = time()
-        
-        print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
 
-
-
+        print("[Checked tree valid: {0:.3f} s]".format(
+            time_b - time_a), file=sys.stderr)

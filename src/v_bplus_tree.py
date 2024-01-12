@@ -9,6 +9,7 @@ from random import randint, shuffle
 
 # General functions
 
+
 def int_to_bytes(x: int) -> bytes:
     return x.to_bytes(32, "little")
 
@@ -37,14 +38,14 @@ def hash_to_int(x):
     return int.from_bytes(hash(x), "little")
 
 
-
 class KzgIntegration:
     def __init__(self, secret: int, modulus: int, width: int, primitive_root: int):
         self.modulus = modulus
         self.width = width
         assert pow(primitive_root, (modulus - 1) // width, modulus) != 1
         assert pow(primitive_root, modulus - 1, modulus) == 1
-        self.root_of_unity = pow(primitive_root, (modulus - 1) // width, modulus)
+        self.root_of_unity = pow(
+            primitive_root, (modulus - 1) // width, modulus)
         self.setup = self._generate_setup(width, secret)
 
     def _generate_setup(self, size, secret):
@@ -60,7 +61,8 @@ class KzgIntegration:
 
     def kzg_utils(self):
         primefield = PrimeField(self.modulus, self.width)
-        domain = [pow(self.root_of_unity, i, self.modulus) for i in range(self.width)]
+        domain = [pow(self.root_of_unity, i, self.modulus)
+                  for i in range(self.width)]
         return KzgUtils(self.modulus, self.width, domain, self.setup, primefield)
 
 
@@ -106,6 +108,7 @@ class VBPlusTreeNode:
         elif self.node_type == 'inner':
             return [int_from_bytes(key) for key in self.keys]
 
+
 class VBPlusTree:
     def __init__(self, kzg: KzgIntegration, root: VBPlusTreeNode, min_degree: int, modulus: int, width: int):
         self.kzg = kzg.kzg_utils()
@@ -144,10 +147,9 @@ class VBPlusTree:
             self._split_node(node, node_type, p_node, p_idx)
         else:
             return
-        
+
         if len(path) > 0:
             self._insert(path, key, value)
-            
 
     def _split_node(self, node: VBPlusTreeNode, node_type: str, parent_node: VBPlusTreeNode, split_idx: int):
         """
@@ -173,7 +175,6 @@ class VBPlusTree:
             node.keys = node.keys[:t]
             node.children = node.children[:t+1]
             parent_node.children.insert(split_idx + 1, new_node)
-        
 
     def insert_node(self, key: bytes, value: bytes, update: bool = False):
         """
@@ -206,7 +207,8 @@ class VBPlusTree:
             leaf_node.values[leaf_idx] = value
             leaf_node.node_hash()
             new_hash = leaf_node.hash
-            value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
+            value_change = (int_from_bytes(
+                new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
         # Insert
         else:
@@ -215,7 +217,8 @@ class VBPlusTree:
                 self._insert(path, key, value)
                 leaf_node.node_hash()
                 new_hash = leaf_node.hash
-                value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
+                value_change = (int_from_bytes(
+                    new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
             else:
                 self._insert_vc_node_splits(key, value, path)
                 return
@@ -227,17 +230,19 @@ class VBPlusTree:
             if node.commitment is None:
                 self.add_node_hash(node)
             else:
-                node.commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
+                node.commitment.add(
+                    self.setup["g1_lagrange"][idx].dup().mult(value_change))
                 node.node_hash()
             new_hash = node.hash
-            value_change = (int_from_bytes(new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
+            value_change = (int_from_bytes(
+                new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
     def _insert_vc_node_splits(self, key: bytes, value: bytes, path: list):
-        
-        t = self.min_degree
-        idx_for_split = next((i for i, (node, _) in enumerate(reversed(path)) if node.key_count() != (2 * t) - 1), len(path))
-        idx_for_split = len(path) - idx_for_split
 
+        t = self.min_degree
+        idx_for_split = next((i for i, (node, _) in enumerate(
+            reversed(path)) if node.key_count() != (2 * t) - 1), len(path))
+        idx_for_split = len(path) - idx_for_split
 
         update_path = []
         for i in range(len(path)):
@@ -246,7 +251,8 @@ class VBPlusTree:
             previous_node = path[i - 1][0]
             previous_idx = path[i - 1][1]
             hash = node.hash
-            value_dict = {'node_type': node_type, 'updated_idx': idx, 'hash': hash}
+            value_dict = {'node_type': node_type,
+                          'updated_idx': idx, 'hash': hash}
             if i >= idx_for_split:
                 if i == 0:
                     value_dict['updated_idx'] = 1 if idx > t - 1 else 0
@@ -256,19 +262,26 @@ class VBPlusTree:
                         del value_dict['split_idx']
 
                 else:
-                    value_dict['updated_idx'] = previous_idx + 1 if idx > t - 1 else previous_idx
-                    value_dict['split_idx'] = previous_idx if idx > t - 1 else previous_idx + 1
+                    value_dict['updated_idx'] = previous_idx + \
+                        1 if idx > t - 1 else previous_idx
+                    value_dict['split_idx'] = previous_idx if idx > t - \
+                        1 else previous_idx + 1
                     if i == idx_for_split and previous_node.child_count() > previous_idx + 1:
-                        value_dict['shifted_idx'] = [i + 1 for i in range(previous_idx + 1, previous_node.child_count())]
+                        value_dict['shifted_idx'] = [
+                            i + 1 for i in range(previous_idx + 1, previous_node.child_count())]
 
                     elif i - 1 >= idx_for_split:
-                        value_dict['updated_idx'] = value_dict['updated_idx'] % (t + 1)
-                        value_dict['split_idx'] = value_dict['split_idx'] % (t + 1)
+                        value_dict['updated_idx'] = value_dict['updated_idx'] % (
+                            t + 1)
+                        value_dict['split_idx'] = value_dict['split_idx'] % (
+                            t + 1)
                         if t - 1 > previous_idx % t:
-                            value_dict['shifted_idx'] = [i + 1 for i in range(previous_idx % t + 1, t)]
+                            value_dict['shifted_idx'] = [
+                                i + 1 for i in range(previous_idx % t + 1, t)]
                             if previous_idx > t - 1:
-                                value_dict['shifted_idx'] = [i - 1 for i in value_dict['shifted_idx']]
-                
+                                value_dict['shifted_idx'] = [
+                                    i - 1 for i in value_dict['shifted_idx']]
+
                     if idx == t or previous_idx == t:
                         if node_type == 'leaf' and idx == t and previous_idx != t:
                             pass
@@ -281,12 +294,13 @@ class VBPlusTree:
                                     value_dict['branch_shifted_idx'] = value_dict['shifted_idx']
                                     del value_dict['shifted_idx']
 
-
                 if node_type == 'inner':
                     if idx > t - 1:
-                        child_hashes = [node.hash for node in node.children[t + 1:]]
+                        child_hashes = [
+                            node.hash for node in node.children[t + 1:]]
                     else:
-                        child_hashes = [node.hash for node in node.children[t:]]
+                        child_hashes = [
+                            node.hash for node in node.children[t:]]
                     value_dict['child_hashes'] = child_hashes
                     if value_dict.get('branch_idx') is not None and value_dict.get('branch_stop') is None:
                         end_of_branch = i
@@ -305,7 +319,7 @@ class VBPlusTree:
                     continue
                 value_dict['updated_idx'] = previous_idx
             update_path.append(value_dict)
-        
+
         self._insert(path, key, value)
 
         current_node = self.root
@@ -316,17 +330,20 @@ class VBPlusTree:
                 branch_node = None
                 node['split_node'] = current_node.children[node['split_idx']]
             if node.get('shifted_idx') is not None:
-                node['shifted_nodes'] = [current_node.children[i] for i in node['shifted_idx']]
+                node['shifted_nodes'] = [current_node.children[i]
+                                         for i in node['shifted_idx']]
             if node.get('branch_idx') is not None:
                 if branch_node is None:
                     node['branch_node'] = current_node.children[node['branch_idx']]
-                else: 
+                else:
                     node['branch_node'] = branch_node.children[node['branch_idx']]
             if node.get('branch_shifted_idx') is not None:
                 if branch_node is None:
-                    node['branch_shifted_nodes'] = [current_node.children[i] for i in node['branch_shifted_idx']]
+                    node['branch_shifted_nodes'] = [current_node.children[i]
+                                                    for i in node['branch_shifted_idx']]
                 else:
-                    node['branch_shifted_nodes'] = [branch_node.children[i] for i in node['branch_shifted_idx']]
+                    node['branch_shifted_nodes'] = [branch_node.children[i]
+                                                    for i in node['branch_shifted_idx']]
             branch_node = node.get('branch_node')
             if node.get('branch_stop') is not None:
                 branch_node = None
@@ -339,7 +356,7 @@ class VBPlusTree:
         root_dict = {'node_type': 'root', 'updated_node': self.root}
         update_path.insert(0, root_dict)
         for node in reversed(update_path):
-            
+
             node['updated_node'].node_hash()
 
             if node.get('branch_stop') and len(branch_node_changes) > 0:
@@ -352,15 +369,18 @@ class VBPlusTree:
                     self.add_node_hash(node['updated_node'])
                 else:
                     for idx, value_change in update_node_changes:
-                        node['updated_node'].commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
+                        node['updated_node'].commitment.add(
+                            self.setup["g1_lagrange"][idx].dup().mult(value_change))
                         node['updated_node'].node_hash()
                 return
             if node['node_type'] == 'inner':
                 if node.get('split_node') is not None:
                     node['split_node'].node_hash()
                     hashes = node['child_hashes']
-                    changes_to_original = [(2 * t - len(hashes) + i, (- int_from_bytes(hashes[i]) + self.modulus) % self.modulus) for i in range(len(hashes))]
-                    changes_to_split = [(i, int_from_bytes(node['child_hashes'][i]) % self.modulus) for i in range(len(hashes))]
+                    changes_to_original = [(2 * t - len(hashes) + i, (- int_from_bytes(
+                        hashes[i]) + self.modulus) % self.modulus) for i in range(len(hashes))]
+                    changes_to_split = [(i, int_from_bytes(
+                        node['child_hashes'][i]) % self.modulus) for i in range(len(hashes))]
                     if node['updated_idx'] < node['split_idx']:
                         update_node_changes = changes_to_original + update_node_changes
                         split_node_changes = changes_to_split
@@ -370,8 +390,10 @@ class VBPlusTree:
                 if node.get('branch_node') is not None:
                     node['branch_node'].node_hash()
                     hashes = node['child_hashes']
-                    changes_to_original = [(2 * t - len(hashes) + i, (- int_from_bytes(hashes[i]) + self.modulus) % self.modulus) for i in range(len(hashes))]
-                    changes_to_branch = [(i, int_from_bytes(hashes[i]) % self.modulus) for i in range(len(hashes))]
+                    changes_to_original = [(2 * t - len(hashes) + i, (- int_from_bytes(
+                        hashes[i]) + self.modulus) % self.modulus) for i in range(len(hashes))]
+                    changes_to_branch = [
+                        (i, int_from_bytes(hashes[i]) % self.modulus) for i in range(len(hashes))]
                     if abs(node['updated_idx'] - node['branch_idx']) != 1:
                         updated_node_is_original = True if node['updated_idx'] == t else False
                     else:
@@ -384,29 +406,31 @@ class VBPlusTree:
                         update_node_changes = changes_to_branch + update_node_changes
                         branch_node_changes = changes_to_original + branch_node_changes
 
-
             if len(branch_node_changes) > 0:
                 for idx, value_change in branch_node_changes:
                     if node.get('branch_node') is not None:
-                        node['branch_node'].commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
+                        node['branch_node'].commitment.add(
+                            self.setup["g1_lagrange"][idx].dup().mult(value_change))
                         node['branch_node'].node_hash()
                     else:
-                        node['updated_node'].commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
+                        node['updated_node'].commitment.add(
+                            self.setup["g1_lagrange"][idx].dup().mult(value_change))
                         node['updated_node'].node_hash()
                 branch_node_changes = []
 
             # Update commits to current nodes
             if len(split_node_changes) > 0:
                 for idx, value_change in split_node_changes:
-                    
-                    node['split_node'].commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
+
+                    node['split_node'].commitment.add(
+                        self.setup["g1_lagrange"][idx].dup().mult(value_change))
                     node['split_node'].node_hash()
                 split_node_changes = []
 
-
             if len(update_node_changes) > 0:
                 for idx, value_change in update_node_changes:
-                    node['updated_node'].commitment.add(self.setup["g1_lagrange"][idx].dup().mult(value_change))
+                    node['updated_node'].commitment.add(
+                        self.setup["g1_lagrange"][idx].dup().mult(value_change))
                     node['updated_node'].node_hash()
                 update_node_changes = []
 
@@ -415,9 +439,12 @@ class VBPlusTree:
                 if node.get('split_node') is not None:
                     node['split_node'].node_hash()
                     min_idx = min(node['updated_idx'], node['split_idx'])
-                    nodes = (node['updated_node'], node['split_node']) if node['updated_idx'] < node['split_idx'] else (node['split_node'], node['updated_node'])
-                    change_to_original = (int_from_bytes(nodes[0].hash) - int_from_bytes(node['hash']) + self.modulus) % self.modulus
-                    change_to_split = int_from_bytes(nodes[1].hash) % self.modulus
+                    nodes = (node['updated_node'], node['split_node']) if node['updated_idx'] < node['split_idx'] else (
+                        node['split_node'], node['updated_node'])
+                    change_to_original = (int_from_bytes(
+                        nodes[0].hash) - int_from_bytes(node['hash']) + self.modulus) % self.modulus
+                    change_to_split = int_from_bytes(
+                        nodes[1].hash) % self.modulus
 
                     update_node_changes.append((min_idx, change_to_original))
                     update_node_changes.append((min_idx + 1, change_to_split))
@@ -425,38 +452,55 @@ class VBPlusTree:
                 if node.get('branch_node') is not None:
                     node['branch_node'].node_hash()
                     if abs(node['updated_idx'] - node['branch_idx']) != 1:
-                        nodes = (node['updated_node'], node['branch_node']) if node['updated_idx'] == t else (node['branch_node'], node['updated_node'])
+                        nodes = (node['updated_node'], node['branch_node']) if node['updated_idx'] == t else (
+                            node['branch_node'], node['updated_node'])
                     else:
-                        nodes = (node['updated_node'], node['branch_node']) if node['updated_idx'] < node['branch_idx'] else (node['branch_node'], node['updated_node'])
-                    change_to_original = (int_from_bytes(nodes[0].hash) - int_from_bytes(node['hash']) + self.modulus) % self.modulus
-                    change_to_branch = int_from_bytes(nodes[1].hash) % self.modulus
+                        nodes = (node['updated_node'], node['branch_node']) if node['updated_idx'] < node['branch_idx'] else (
+                            node['branch_node'], node['updated_node'])
+                    change_to_original = (int_from_bytes(
+                        nodes[0].hash) - int_from_bytes(node['hash']) + self.modulus) % self.modulus
+                    change_to_branch = int_from_bytes(
+                        nodes[1].hash) % self.modulus
                     if node['updated_node'] == nodes[0]:
-                        update_node_changes.append((node['updated_idx'], change_to_original))
-                        branch_node_changes.append((node['branch_idx'], change_to_branch))
+                        update_node_changes.append(
+                            (node['updated_idx'], change_to_original))
+                        branch_node_changes.append(
+                            (node['branch_idx'], change_to_branch))
                     else:
-                        update_node_changes.append((node['updated_idx'], change_to_branch))
-                        branch_node_changes.append((node['branch_idx'], change_to_original))
-            
+                        update_node_changes.append(
+                            (node['updated_idx'], change_to_branch))
+                        branch_node_changes.append(
+                            (node['branch_idx'], change_to_original))
+
                 if node.get('shifted_nodes') is not None:
                     for i in range(len(node['shifted_nodes'])):
-                        shifted_hash = node['shifted_nodes'][i].hash 
-                        change_remove_hash = (- int_from_bytes(shifted_hash) + self.modulus) % self.modulus
-                        change_add_hash = int_from_bytes(shifted_hash) % self.modulus
-                        update_node_changes.append((node['shifted_idx'][i] - 1, change_remove_hash))
-                        update_node_changes.append((node['shifted_idx'][i], change_add_hash))
+                        shifted_hash = node['shifted_nodes'][i].hash
+                        change_remove_hash = (- int_from_bytes(shifted_hash) +
+                                              self.modulus) % self.modulus
+                        change_add_hash = int_from_bytes(
+                            shifted_hash) % self.modulus
+                        update_node_changes.append(
+                            (node['shifted_idx'][i] - 1, change_remove_hash))
+                        update_node_changes.append(
+                            (node['shifted_idx'][i], change_add_hash))
 
                 if node.get('branch_shifted_nodes') is not None:
                     for i in range(len(node['branch_shifted_nodes'])):
-                        shifted_hash = node['branch_shifted_nodes'][i].hash 
-                        change_remove_hash = (- int_from_bytes(shifted_hash) + self.modulus) % self.modulus
-                        change_add_hash = int_from_bytes(shifted_hash) % self.modulus
-                        branch_node_changes.append((node['branch_shifted_idx'][i] - 1, change_remove_hash))
-                        branch_node_changes.append((node['branch_shifted_idx'][i], change_add_hash))
+                        shifted_hash = node['branch_shifted_nodes'][i].hash
+                        change_remove_hash = (- int_from_bytes(shifted_hash) +
+                                              self.modulus) % self.modulus
+                        change_add_hash = int_from_bytes(
+                            shifted_hash) % self.modulus
+                        branch_node_changes.append(
+                            (node['branch_shifted_idx'][i] - 1, change_remove_hash))
+                        branch_node_changes.append(
+                            (node['branch_shifted_idx'][i], change_add_hash))
 
             else:
-                update_change = (int_from_bytes(node['updated_node'].hash) - int_from_bytes(node['hash']) + self.modulus) % self.modulus
-                update_node_changes.append((node['updated_idx'], update_change))
-
+                update_change = (int_from_bytes(
+                    node['updated_node'].hash) - int_from_bytes(node['hash']) + self.modulus) % self.modulus
+                update_node_changes.append(
+                    (node['updated_idx'], update_change))
 
     def find_node(self, node: VBPlusTreeNode, key: bytes):
         """
@@ -475,7 +519,7 @@ class VBPlusTree:
                 return None
 
             return self.find_node(node.children[i], key)
-        
+
         return None
 
     def find_path_to_leaf(self, node: VBPlusTreeNode, key: bytes, path: list = None) -> list:
@@ -487,7 +531,7 @@ class VBPlusTree:
 
         if path is None:
             path = []
-        
+
         while node is not None:
             i = 0
             while i < key_count and key >= node.keys[i]:
@@ -500,13 +544,13 @@ class VBPlusTree:
 
             path.append((node, i))
             return self.find_path_to_leaf(node.children[i], key, path)
-                
+
         return path
 
     def print_path(self, path):
         for node, idx in path:
-            print(node, [(int_from_bytes(key), int_from_bytes(value)) for key, value in zip(node.keys, node.value)], idx)
-                
+            print(node, [(int_from_bytes(key), int_from_bytes(value))
+                  for key, value in zip(node.keys, node.value)], idx)
 
     def add_node_hash(self, node: VBPlusTreeNode):
         """
@@ -526,12 +570,11 @@ class VBPlusTree:
             node.commitment = commitment
             node.node_hash()
 
-    
     def check_valid_tree(self, node: VBPlusTreeNode):
         """
         Check if the tree is valid
         """
-            
+
         if node.node_type == 'leaf':
             assert node.hash == hash(node.keys + node.values)
         else:
@@ -548,8 +591,7 @@ class VBPlusTree:
             assert node.commitment.is_equal(commitment)
             assert node.hash == hash([node.commitment.compress()] + node.keys)
 
-
-    def inorder_tree_structure(self, node, level: int = 0, prefix: str = "Root", child_idx = None, structure: list = None):
+    def inorder_tree_structure(self, node, level: int = 0, prefix: str = "Root", child_idx=None, structure: list = None):
         """
         Print the B-tree structure in order
         """
@@ -564,10 +606,11 @@ class VBPlusTree:
             structure.append(info)
             if node.node_type != 'leaf':
                 for i in range(node.child_count()):
-                    self.inorder_tree_structure(node.children[i], level + 1, f"L{i}", i, structure)
+                    self.inorder_tree_structure(
+                        node.children[i], level + 1, f"L{i}", i, structure)
 
         return structure
-    
+
 
 if __name__ == "__main__":
     # Parameters
@@ -588,8 +631,10 @@ if __name__ == "__main__":
     # Generate tree
     min_degree = WIDTH // 2
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-    root = VBPlusTreeNode('leaf', [int_to_bytes(root_val)], [int_to_bytes(root_value)])
-    v_bplus_tree = VBPlusTree(kzg_integration, root, min_degree, MODULUS, WIDTH)
+    root = VBPlusTreeNode('leaf', [int_to_bytes(root_val)], [
+                          int_to_bytes(root_value)])
+    v_bplus_tree = VBPlusTree(kzg_integration, root,
+                              min_degree, MODULUS, WIDTH)
 
     # Insert nodes
 
@@ -598,21 +643,23 @@ if __name__ == "__main__":
         key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
         v_bplus_tree.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
-    
+
     print("Inserted {0} elements".format(NUMBER_INITIAL_KEYS), file=sys.stderr)
 
     time_a = time()
     v_bplus_tree.add_node_hash(v_bplus_tree.root)
     time_b = time()
 
-    print("Computed VB+Tree root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
+    print(
+        "Computed VB+Tree root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
 
     if NUMBER_ADDED_KEYS > 0:
         time_a = time()
         v_bplus_tree.check_valid_tree(v_bplus_tree.root)
         time_b = time()
 
-        print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
+        print("[Checked tree valid: {0:.3f} s]".format(
+            time_b - time_a), file=sys.stderr)
 
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
@@ -621,16 +668,15 @@ if __name__ == "__main__":
             values[key] = value
         time_y = time()
 
-
-        print("Additionally inserted {0} elements in {1:.3f} s".format(NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
+        print("Additionally inserted {0} elements in {1:.3f} s".format(
+            NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
 
         time_a = time()
         v_bplus_tree.check_valid_tree(v_bplus_tree.root)
         time_b = time()
-        
-        print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
 
-
+        print("[Checked tree valid: {0:.3f} s]".format(
+            time_b - time_a), file=sys.stderr)
 
     # if NUMBER_DELETED_KEYS > 0:
     #     all_keys = list(values.keys())
@@ -643,11 +689,11 @@ if __name__ == "__main__":
     #         v_bplus_tree.delete_vc_node(int_to_bytes(key))
     #         del values[key]
     #     time_b = time()
-        
+
     #     print("Deleted {0} elements in {1:.3f} s".format(NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
 
     #     time_a = time()
     #     v_bplus_tree.check_valid_tree(v_bplus_tree.root)
     #     time_b = time()
-        
+
     #     print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
