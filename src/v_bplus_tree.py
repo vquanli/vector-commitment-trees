@@ -24,8 +24,6 @@ def hash(x):
         return hash(x.compress())
     b = b""
     for a in x:
-        if isinstance(a, tuple):
-            b += hash(a)
         if isinstance(a, bytes):
             b += a
         elif isinstance(a, int):
