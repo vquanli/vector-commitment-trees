@@ -37,15 +37,17 @@ def hash_to_int(x):
     return int.from_bytes(hash(x), "little")
 
 
+
 class KzgIntegration:
-    def __init__(self, modulus: int, width: int, primitive_root: int):
+    def __init__(self, secret: int, modulus: int, width: int, primitive_root: int):
         self.modulus = modulus
         self.width = width
         assert pow(primitive_root, (modulus - 1) // width, modulus) != 1
         assert pow(primitive_root, modulus - 1, modulus) == 1
         self.root_of_unity = pow(primitive_root, (modulus - 1) // width, modulus)
+        self.setup = self._generate_setup(width, secret)
 
-    def generate_setup(self, size, secret):
+    def _generate_setup(self, size, secret):
         """
         Generates a setup in the G1 group and G2 group, as well as the Lagrange polynomials in G1 (via FFT)
         """
@@ -56,11 +58,11 @@ class KzgIntegration:
         g1_lagrange = fft(g1_setup, self.modulus, self.root_of_unity, inv=True)
         return {"g1": g1_setup, "g2": g2_setup, "g1_lagrange": g1_lagrange}
 
-    def kzg_utils(self, setup: dict):
+    def kzg_utils(self):
         primefield = PrimeField(self.modulus, self.width)
         domain = [pow(self.root_of_unity, i, self.modulus) for i in range(self.width)]
-        return KzgUtils(self.modulus, self.width, domain, setup, primefield)
-  
+        return KzgUtils(self.modulus, self.width, domain, self.setup, primefield)
+
 
 class VBPlusTreeNode:
     def __init__(self, node_type: str = 'leaf', keys: list = None, values: list = None):
@@ -105,9 +107,9 @@ class VBPlusTreeNode:
             return [int_from_bytes(key) for key in self.keys]
 
 class VBPlusTree:
-    def __init__(self, setup: dict, kzg: KzgUtils, root: VBPlusTreeNode, min_degree: int, modulus: int, width: int):
-        self.setup = setup
-        self.kzg = kzg
+    def __init__(self, kzg: KzgIntegration, root: VBPlusTreeNode, min_degree: int, modulus: int, width: int):
+        self.kzg = kzg.kzg_utils()
+        self.setup = kzg.setup
         self.root = root
         self.min_degree = min_degree if min_degree > 2 else 2
         self.modulus = modulus
@@ -581,15 +583,13 @@ if __name__ == "__main__":
     KEY_RANGE = 2**32
 
     # Generate setup
-    kzg_integration = KzgIntegration(MODULUS, WIDTH, PRIMITIVE_ROOT)
-    kzg_setup = kzg_integration.generate_setup(WIDTH, SECRET)
-    kzg_utils = kzg_integration.kzg_utils(kzg_setup)
+    kzg_integration = KzgIntegration(SECRET, MODULUS, WIDTH, PRIMITIVE_ROOT)
 
     # Generate tree
     min_degree = WIDTH // 2
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
     root = VBPlusTreeNode('leaf', [int_to_bytes(root_val)], [int_to_bytes(root_value)])
-    v_bplus_tree = VBPlusTree(kzg_setup, kzg_utils, root, min_degree, MODULUS, WIDTH)
+    v_bplus_tree = VBPlusTree(kzg_integration, root, min_degree, MODULUS, WIDTH)
 
     # Insert nodes
 
