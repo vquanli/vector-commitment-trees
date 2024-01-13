@@ -135,19 +135,19 @@ class VBTree:
 
         return node
 
-    def _split_child(self, node: VBTreeNode, i: int):
+    def _split_child(self, node: VBTreeNode, idx: int):
         """
         Split a child node
         """
 
         t = self.min_degree
 
-        child = node.children[i]
+        child = node.children[idx]
         new_node = VBTreeNode()
-        node.children.insert(i + 1, new_node)
+        node.children.insert(idx + 1, new_node)
 
-        node.keys.insert(i, child.keys[t - 1])
-        node.values.insert(i, child.values[t - 1])
+        node.keys.insert(idx, child.keys[t - 1])
+        node.values.insert(idx, child.values[t - 1])
 
         new_node.keys = child.keys[t: (2 * t) - 1]
         new_node.values = child.values[t: (2 * t) - 1]
@@ -403,11 +403,6 @@ class VBTree:
                 return self.find_path_to_node(node.children[i], key, path)
         return path
 
-    def print_path(self, path):
-        for node, idx in path:
-            print(node, [(int_from_bytes(key), int_from_bytes(value))
-                  for key, value in zip(node.keys, node.value)], idx)
-
     def add_node_hash(self, node: VBTreeNode):
         """
         Add the hash of a node to the node itself
@@ -447,7 +442,7 @@ class VBTree:
             assert node.hash == hash(
                 [node.commitment.compress()] + node.keys + node.values)
 
-    def inorder_tree_structure(self, node, level: int = 0, prefix: str = "Root", child_idx=None, structure: list = None):
+    def tree_structure(self, node, level: int = 0, prefix: str = "Root", child_idx=None, structure: list = None):
         """
         Print the B-tree structure in order
         """
@@ -462,11 +457,15 @@ class VBTree:
                     "child_index": child_idx}
             structure.append(info)
             for i in range(node.child_count()):
-                self.inorder_tree_structure(
+                self.tree_structure(
                     node.children[i], level + 1, f"L{i}", i, structure)
 
         return structure
 
+    def print_path(self, path):
+        for node, idx in path:
+            print(node, [(int_from_bytes(key), int_from_bytes(value))
+                  for key, value in zip(node.keys, node.value)], idx)
 
 if __name__ == "__main__":
     # Parameters
