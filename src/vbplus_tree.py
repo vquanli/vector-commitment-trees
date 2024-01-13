@@ -624,7 +624,7 @@ if __name__ == "__main__":
     NUMBER_INITIAL_KEYS = 2**8
     NUMBER_ADDED_KEYS = 2**12
     NUMBER_DELETED_KEYS = 2**12
-    KEY_RANGE = 2**32
+    KEY_RANGE = 2**8
 
     # Generate setup
     kzg_integration = KzgIntegration(SECRET, MODULUS, WIDTH, PRIMITIVE_ROOT)
@@ -633,20 +633,20 @@ if __name__ == "__main__":
     root_val, root_value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
     root = VBPlusTreeNode('leaf', [int_to_bytes(root_val)], [
                           int_to_bytes(root_value)])
-    v_bplus_tree = VBPlusTree(kzg_integration, root)
+    vbplus_tree = VBPlusTree(kzg_integration, root)
 
     # Insert nodes
 
     values = {}
     for i in range(NUMBER_INITIAL_KEYS):
         key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-        v_bplus_tree.insert_node(int_to_bytes(key), int_to_bytes(value))
+        vbplus_tree.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
 
     print("Inserted {0} elements".format(NUMBER_INITIAL_KEYS), file=sys.stderr)
 
     time_a = time()
-    v_bplus_tree.add_node_hash(v_bplus_tree.root)
+    vbplus_tree.add_node_hash(vbplus_tree.root)
     time_b = time()
 
     print(
@@ -654,7 +654,7 @@ if __name__ == "__main__":
 
     if NUMBER_ADDED_KEYS > 0:
         time_a = time()
-        v_bplus_tree.check_valid_tree(v_bplus_tree.root)
+        vbplus_tree.check_valid_tree(vbplus_tree.root)
         time_b = time()
 
         print("[Checked tree valid: {0:.3f} s]".format(
@@ -663,7 +663,7 @@ if __name__ == "__main__":
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
             key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
-            v_bplus_tree.upsert_vc_node(int_to_bytes(key), int_to_bytes(value))
+            vbplus_tree.upsert_vc_node(int_to_bytes(key), int_to_bytes(value))
             values[key] = value
         time_y = time()
 
@@ -671,7 +671,7 @@ if __name__ == "__main__":
             NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
 
         time_a = time()
-        v_bplus_tree.check_valid_tree(v_bplus_tree.root)
+        vbplus_tree.check_valid_tree(vbplus_tree.root)
         time_b = time()
 
         print("[Checked tree valid: {0:.3f} s]".format(
@@ -685,14 +685,14 @@ if __name__ == "__main__":
 
     #     time_a = time()
     #     for key in keys_to_delete:
-    #         v_bplus_tree.delete_vc_node(int_to_bytes(key))
+    #         vbplus_tree.delete_vc_node(int_to_bytes(key))
     #         del values[key]
     #     time_b = time()
 
     #     print("Deleted {0} elements in {1:.3f} s".format(NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
 
     #     time_a = time()
-    #     v_bplus_tree.check_valid_tree(v_bplus_tree.root)
+    #     vbplus_tree.check_valid_tree(vbplus_tree.root)
     #     time_b = time()
 
     #     print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
