@@ -2,7 +2,7 @@
 
 This repo was developed as part of my Bachelor Thesis at University of Copenhagen in Computer Science.
 
-The main implementations are found in `\src` as `v_bst.py`, `v_b_tree.py` and `v_bplus_tree.py`.
+The main implementations are found in `\src` as `vbst.py`, `vb_tree.py` and `vbplus_tree.py`.
 
 Python version used: Python 3.9.5
 
@@ -34,7 +34,7 @@ Run `python blst\bindings\python\run.me`
 
 Now you will have a `blst.py` and `_blst.so` file in `blst\bindings\python`
 
-These files needs to be moved to `/src` and now you should be able to run the implementations example `python src/v_bst.py`
+These files needs to be moved to `/src` and now you should be able to run the implementations example `python src/vbst.py`
 
 
 
