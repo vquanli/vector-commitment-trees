@@ -108,7 +108,7 @@ class VBTree:
 
     def _insert(self, node: VBTreeNode, key: bytes, value: bytes, update: bool):
         """
-        Insert command for the tree
+        Recursive insert operator
         """
         t = self.min_degree
         key_count = node.key_count()
@@ -232,9 +232,17 @@ class VBTree:
                 new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
     def _insert_vc_node_splits(self, key: bytes, value: bytes, path: list, splits: list):
-
+        """
+        Handles the hash and commitment updates when nodes are split during insertion
+        
+        The method is divided into 3 parts
+        1. Determine the the indexes of the updated nodes, the split nodes and the shifted nodes
+        2. Re-determines the path based on the indexes found in part 1
+        3. Update the hashes and commitments of the nodes at each level of the path from the bottom up
+        """
         t = self.min_degree
 
+        # Part 1: Determine the the indexes of the updated nodes, the split nodes and the shifted nodes
         update_path = []
         for i in range(len(path)):
             node, idx = path[i]
@@ -244,7 +252,7 @@ class VBTree:
             hash = node.hash
             value_dict = {'node_type': node_type, 'hash': hash}
             if splits[i]:
-                if i == 0:
+                if i == 0: # Root node
                     value_dict['updated_idx'] = 1 if idx > t - 1 else 0
                     value_dict['split_idx'] = 0 if idx > t - 1 else 1
                 else:
@@ -271,6 +279,7 @@ class VBTree:
                     value_dict['updated_idx'] = previous_idx
             update_path.append(value_dict)
 
+        # Part 2: Re-determines the path based on the idexes found in part 1
         self.insert_node(key, value)
         current_node = self.root
         for node in update_path:
@@ -285,13 +294,14 @@ class VBTree:
         update_node_changes = []
         split_node_changes = []
 
+        # Part 3: Update the hashes and commitments of the nodes at each level of the path from the bottom up
         root_dict = {'node_type': 'root', 'updated_node': self.root}
         update_path.insert(0, root_dict)
         for node in reversed(update_path):
 
             node['updated_node'].node_hash()
 
-            # Changes to current node
+            # Calculate changes to nodes on current level
             if node['node_type'] == 'root':
                 if update_path[1].get('split_node') is not None:
                     self.add_node_hash(node['updated_node'])
@@ -315,7 +325,7 @@ class VBTree:
                         update_node_changes = changes_to_split + update_node_changes
                         split_node_changes = changes_to_original
 
-            # Update commits to current nodes
+            # Update commits for nodes on current level
             if len(split_node_changes) > 0:
                 for idx, value_change in split_node_changes:
                     node['split_node'].commitment.add(
@@ -330,7 +340,7 @@ class VBTree:
                     node['updated_node'].node_hash()
                 update_node_changes = []
 
-            # Changes to next node
+            # Calculate changes to nodes on next level
             if node.get('split_node') is not None:
                 node['split_node'].node_hash()
                 min_idx = min(node['updated_idx'], node['split_idx'])
@@ -362,7 +372,7 @@ class VBTree:
 
     def find_node(self, node: VBTreeNode, key: bytes):
         """
-        Search for a node in the tree
+        Search for a node in the tree with key
         """
 
         key_count = node.key_count()
@@ -382,7 +392,7 @@ class VBTree:
 
     def find_path_to_node(self, node: VBTreeNode, key: bytes, path: list = None) -> list:
         """
-        Returns the path from node to a node with key with the last element being none if the node does not exist
+        Returns the path from node to the node with key
         """
 
         key_count = node.key_count()
@@ -405,7 +415,7 @@ class VBTree:
 
     def add_node_hash(self, node: VBTreeNode):
         """
-        Add the hash of a node to the node itself
+        Adds node hashes and commitments recursively down the tree
         """
         if node.is_leaf():
             node.node_hash()
@@ -423,7 +433,7 @@ class VBTree:
 
     def check_valid_tree(self, node: VBTreeNode):
         """
-        Check if the tree is valid
+        Check if the hashes and commitments are valid down the tree
         """
 
         if node.is_leaf():
@@ -444,7 +454,7 @@ class VBTree:
 
     def tree_structure(self, node, level: int = 0, prefix: str = "Root", child_idx=None, structure: list = None):
         """
-        Print the B-tree structure in order
+        Returns the tree structure as a list of dictionaries
         """
 
         if structure is None:
@@ -463,6 +473,9 @@ class VBTree:
         return structure
 
     def print_path(self, path):
+        """
+        Prints the path
+        """
         for node, idx in path:
             print(node, [(int_from_bytes(key), int_from_bytes(value))
                   for key, value in zip(node.keys, node.value)], idx)

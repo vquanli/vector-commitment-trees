@@ -95,7 +95,7 @@ class VBST:
 
     def _insert(self, node: VBSTNode, key: bytes, value: bytes, update: bool):
         """
-        Insert command for the tree
+        Recursive insert operator
         """
 
         if node is None:
@@ -238,7 +238,7 @@ class VBST:
 
     def find_min(self, node: VBSTNode) -> VBSTNode:
         """
-        Find the minimum node in the tree
+        Find the minimum node from a given node
         """
         while node.left is not None:
             node = node.left
@@ -246,7 +246,7 @@ class VBST:
 
     def find_node(self, node: VBSTNode, key: bytes) -> VBSTNode:
         """
-        Search for a node in the tree
+        Search for a node in the tree with key
         """
         while node is not None:
             if key == node.key:
@@ -259,7 +259,8 @@ class VBST:
 
     def find_path_to_node(self, node: VBSTNode, key: bytes) -> list:
         """
-        Returns the path from node to a node with key with the last element being none if the node does not exist
+        Returns the path from node to a the node with key,
+        returns None at the end of path if node is not found
         """
         path = []
         while node is not None:
@@ -280,7 +281,7 @@ class VBST:
 
     def add_node_hash(self, node: VBSTNode):
         """
-        Add the hash of a node to the node itself
+        Adds node hashes and commitments recursively down the tree
         """
         if node.is_leaf():
             node.node_hash()
@@ -300,7 +301,7 @@ class VBST:
 
     def check_valid_tree(self, node: VBSTNode):
         """
-        Check if the tree is valid
+        Check if the hashes and commitments are valid down the tree
         """
 
         if node.is_leaf():
@@ -324,7 +325,7 @@ class VBST:
 
     def tree_structure(self, node, level: int = 0, prefix: str = "Root", structure: list = None):
         """
-        Print the tree in order
+        Returns the tree structure as a list of dictionaries
         """
 
         if structure is None:

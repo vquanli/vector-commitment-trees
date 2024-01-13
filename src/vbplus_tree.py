@@ -121,7 +121,7 @@ class VBPlusTree:
 
     def _insert(self, path: list, key: bytes, value: bytes):
         """
-        Insert command for the tree
+        Recursive insert operator
         """
 
         t = self.min_degree
@@ -195,7 +195,7 @@ class VBPlusTree:
 
     def upsert_vc_node(self, key: bytes, value: bytes):
         """
-        Insert a node into the tree
+        Insert or update a node in the tree and update the hashes/commitments
         """
         t = self.min_degree
         root = self.root
@@ -239,8 +239,17 @@ class VBPlusTree:
                 new_hash) - int_from_bytes(old_hash) + self.modulus) % self.modulus
 
     def _insert_vc_node_splits(self, key: bytes, value: bytes, path: list):
-
+        """
+        Handles the hash and commitment updates when nodes are split during insertion
+        
+        The method is divided into 3 parts
+        1. Determine the the indexes of the updated nodes, the split nodes, the branch nodes and the shifted nodes
+        2. Re-determines the path based on the indexes found in part 1
+        3. Update the hashes and commitments of the nodes at each level of the path from the bottom up
+        """
         t = self.min_degree
+
+        # Part 1: Determine the the indexes of the updated nodes, the split nodes, the branch nodes and the shifted nodes
         idx_for_split = next((i for i, (node, _) in enumerate(
             reversed(path)) if node.key_count() != (2 * t) - 1), len(path))
         idx_for_split = len(path) - idx_for_split
@@ -323,6 +332,7 @@ class VBPlusTree:
 
         self._insert(path, key, value)
 
+        # Part 2: Re-determines the path based on the indexes found in part 1
         current_node = self.root
         branch_node = None
         for node in update_path:
@@ -350,6 +360,7 @@ class VBPlusTree:
                 branch_node = None
             current_node = node['updated_node']
 
+        # Part 3: Update the hashes and commitments of the nodes at each level of the path from the bottom up
         update_node_changes = []
         split_node_changes = []
         branch_node_changes = []
@@ -364,7 +375,7 @@ class VBPlusTree:
                 update_node_changes.extend(branch_node_changes)
                 branch_node_changes = []
 
-            # Changes to current node
+            # Calculate changes to nodes on current level
             if node['node_type'] == 'root':
                 if update_path[1].get('split_idx') is not None or update_path[1].get('branch_idx') is not None:
                     self.add_node_hash(node['updated_node'])
@@ -407,6 +418,7 @@ class VBPlusTree:
                         update_node_changes = changes_to_branch + update_node_changes
                         branch_node_changes = changes_to_original + branch_node_changes
 
+            # Update commits for nodes on current level
             if len(branch_node_changes) > 0:
                 for idx, value_change in branch_node_changes:
                     if node.get('branch_node') is not None:
@@ -419,7 +431,6 @@ class VBPlusTree:
                         node['updated_node'].node_hash()
                 branch_node_changes = []
 
-            # Update commits to current nodes
             if len(split_node_changes) > 0:
                 for idx, value_change in split_node_changes:
 
@@ -435,7 +446,7 @@ class VBPlusTree:
                     node['updated_node'].node_hash()
                 update_node_changes = []
 
-            # Changes to next node
+            # Calculate changes to nodes on next level
             if node.get('split_node') is not None or node.get('branch_node') is not None:
                 if node.get('split_node') is not None:
                     node['split_node'].node_hash()
@@ -505,7 +516,7 @@ class VBPlusTree:
 
     def find_node(self, node: VBPlusTreeNode, key: bytes):
         """
-        Search for a node in the tree
+        Search for a node in the tree with key
         """
 
         key_count = node.key_count()
@@ -525,7 +536,7 @@ class VBPlusTree:
 
     def find_path_to_leaf(self, node: VBPlusTreeNode, key: bytes, path: list = None) -> list:
         """
-        Returns the path from node to a node with key with the last element being none if the node does not exist
+        Returns the path from node to the node with key
         """
 
         key_count = node.key_count()
@@ -555,7 +566,7 @@ class VBPlusTree:
 
     def add_node_hash(self, node: VBPlusTreeNode):
         """
-        Add the hash of a node to the node itself
+        Adds node hashes and commitments recursively down the tree
         """
         if node.node_type == 'leaf':
             node.node_hash()
@@ -573,7 +584,7 @@ class VBPlusTree:
 
     def check_valid_tree(self, node: VBPlusTreeNode):
         """
-        Check if the tree is valid
+        Check if the hashes and commitments are valid down the tree
         """
 
         if node.node_type == 'leaf':
@@ -592,9 +603,9 @@ class VBPlusTree:
             assert node.commitment.is_equal(commitment)
             assert node.hash == hash([node.commitment.compress()] + node.keys)
 
-    def inorder_tree_structure(self, node, level: int = 0, prefix: str = "Root", child_idx=None, structure: list = None):
+    def tree_structure(self, node, level: int = 0, prefix: str = "Root", child_idx=None, structure: list = None):
         """
-        Print the B-tree structure in order
+        Returns the tree structure as a list of dictionaries
         """
 
         if structure is None:
@@ -607,7 +618,7 @@ class VBPlusTree:
             structure.append(info)
             if node.node_type != 'leaf':
                 for i in range(node.child_count()):
-                    self.inorder_tree_structure(
+                    self.tree_structure(
                         node.children[i], level + 1, f"L{i}", i, structure)
 
         return structure
