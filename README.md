@@ -36,6 +36,13 @@ Now you will have a `blst.py` and `_blst.so` file in `blst\bindings\python`
 
 These files needs to be moved to `/src` and now you should be able to run the implementations example `python src/vbst.py`
 
+<br/>
+
+The `.sh` shell scripts can be run to generate statistics for the different implementations fed with different parameters.
+
+Run `bash {script_name}.sh` to execute
+
+
 
 
 
