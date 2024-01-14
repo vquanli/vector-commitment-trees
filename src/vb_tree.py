@@ -92,7 +92,7 @@ class VBTreeNode:
     def is_leaf(self) -> bool:
         return self.children == []
 
-    def show_keys(self):
+    def show_key_values(self):
         return [(int_from_bytes(key), int_from_bytes(value)) for key, value in zip(self.keys, self.values)]
 
 

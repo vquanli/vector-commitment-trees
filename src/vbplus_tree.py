@@ -559,11 +559,6 @@ class VBPlusTree:
 
         return path
 
-    def print_path(self, path):
-        for node, idx in path:
-            print(node, [(int_from_bytes(key), int_from_bytes(value))
-                  for key, value in zip(node.keys, node.value)], idx)
-
     def add_node_hash(self, node: VBPlusTreeNode):
         """
         Adds node hashes and commitments recursively down the tree
@@ -622,6 +617,13 @@ class VBPlusTree:
                         node.children[i], level + 1, f"L{i}", i, structure)
 
         return structure
+    
+    def print_path(self, path):
+        """
+        Prints the path
+        """
+        for node, idx in path:
+            print(node, [int_from_bytes(key) for key in node.keys], idx)
 
 
 if __name__ == "__main__":
