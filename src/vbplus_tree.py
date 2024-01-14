@@ -165,7 +165,9 @@ class VBPlusTree:
             new_node.values = node.values[t:]
             node.keys = node.keys[:t]
             node.values = node.values[:t]
+            current_next_leaf = node.next_leaf
             node.next_leaf = new_node
+            new_node.next_leaf = current_next_leaf
             parent_node.children.insert(split_idx + 1, new_node)
             parent_node.keys.insert(split_idx, new_node.keys[0])
 
