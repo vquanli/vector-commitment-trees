@@ -449,7 +449,7 @@ if __name__ == "__main__":
 
         time_a = time()
         for key in keys_to_search:
-            vbst.find_node(vbst.root, int_to_bytes(key))
+            assert vbst.find_node(vbst.root, int_to_bytes(key)) is not None
         time_b = time()
 
         time_to_search = time_b - time_a

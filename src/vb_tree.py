@@ -570,7 +570,7 @@ if __name__ == "__main__":
 
         time_a = time()
         for key in keys_to_search:
-            vb_tree.find_node(vb_tree.root, int_to_bytes(key))
+            assert vb_tree.find_node(vb_tree.root, int_to_bytes(key)) is not None
         time_b = time()
 
         time_to_search = time_b - time_a
