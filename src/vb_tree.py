@@ -483,15 +483,25 @@ class VBTree:
 if __name__ == "__main__":
     # Parameters
     MODULUS = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
-    WIDTH = 4
+    WIDTH_BITS = 2
+    WIDTH = 2**WIDTH_BITS
     PRIMITIVE_ROOT = 7
     SECRET = 8927347823478352432985
 
     # Number of keys to insert, delete, and add
-    NUMBER_INITIAL_KEYS = 2**8
-    NUMBER_ADDED_KEYS = 2**12
-    NUMBER_DELETED_KEYS = 2**12
-    KEY_RANGE = 2**8
+    NUMBER_INITIAL_KEYS = 2**13
+    NUMBER_ADDED_KEYS = 2**7
+    NUMBER_SEARCH_KEYS = 0
+    KEY_RANGE = 2**256-1
+
+    if len(sys.argv) > 1:
+        WIDTH_BITS = int(sys.argv[1])
+        WIDTH = 2 ** WIDTH_BITS
+
+        KEY_RANGE = 2 ** int(sys.argv[2])
+        NUMBER_INITIAL_KEYS = 2 ** int(sys.argv[3])
+        NUMBER_ADDED_KEYS = 2 ** int(sys.argv[4]) if int(sys.argv[4]) != 0 else 0
+        NUMBER_SEARCH_KEYS = 2 ** int(sys.argv[5]) if int(sys.argv[5]) != 0 else 0
 
     # Generate setup
     kzg_integration = KzgIntegration(SECRET, MODULUS, WIDTH, PRIMITIVE_ROOT)
@@ -502,29 +512,35 @@ if __name__ == "__main__":
     vb_tree = VBTree(kzg_integration, root)
 
     # Insert nodes
-
     values = {}
+
+    time_a = time()
     for i in range(NUMBER_INITIAL_KEYS):
         key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
         vb_tree.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
+    time_b = time()
 
-    print("Inserted {0} elements".format(NUMBER_INITIAL_KEYS), file=sys.stderr)
+    time_initial = time_b - time_a
+    print("Inserted {0} elements in {1:.3f} s".format(NUMBER_INITIAL_KEYS, time_initial), file=sys.stderr)
 
     time_a = time()
     vb_tree.add_node_hash(vb_tree.root)
     time_b = time()
+    compute_root = time_b - time_a
 
-    print(
-        "Computed VB-tree root in {0:.3f} s".format(time_b - time_a), file=sys.stderr)
+    print("Computed VB-tree root in {0:.3f} s".format(compute_root), file=sys.stderr)
 
+    # time_a = time()
+    # vb_tree.check_valid_tree(vb_tree.root)
+    # time_b = time()
+    # compute_tree_valid = time_b - time_a
+
+    # print("[Checked tree valid: {0:.3f} s]".format(compute_tree_valid), file=sys.stderr)
+
+    time_to_add = None
+    check_valid_tree_after_add = None
     if NUMBER_ADDED_KEYS > 0:
-        time_a = time()
-        vb_tree.check_valid_tree(vb_tree.root)
-        time_b = time()
-
-        print("[Checked tree valid: {0:.3f} s]".format(
-            time_b - time_a), file=sys.stderr)
 
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
@@ -533,32 +549,39 @@ if __name__ == "__main__":
             values[key] = value
         time_y = time()
 
-        print("Additionally inserted {0} elements in {1:.3f} s".format(
-            NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
+        time_to_add = time_y - time_x
+        print("Additionally inserted {0} elements in {1:.3f} s".format(NUMBER_ADDED_KEYS, time_to_add), file=sys.stderr)
+
 
         time_a = time()
         vb_tree.check_valid_tree(vb_tree.root)
         time_b = time()
+        check_valid_tree_after_add = time_b - time_a
 
-        print("[Checked tree valid: {0:.3f} s]".format(
-            time_b - time_a), file=sys.stderr)
+        print("[Checked tree valid: {0:.3f} s]".format(check_valid_tree_after_add), file=sys.stderr)
 
-    # if NUMBER_DELETED_KEYS > 0:
-    #     all_keys = list(values.keys())
-    #     shuffle(all_keys)
 
-    #     keys_to_delete = all_keys[:NUMBER_DELETED_KEYS]
+    time_to_search = None
+    if NUMBER_SEARCH_KEYS > 0:
+        all_keys = list(values.keys())
+        shuffle(all_keys)
 
-    #     time_a = time()
-    #     for key in keys_to_delete:
-    #         vb_tree.delete_vc_node(int_to_bytes(key))
-    #         del values[key]
-    #     time_b = time()
+        keys_to_search = all_keys[:NUMBER_SEARCH_KEYS]
 
-    #     print("Deleted {0} elements in {1:.3f} s".format(NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
+        time_a = time()
+        for key in keys_to_search:
+            vb_tree.find_node(vb_tree.root, int_to_bytes(key))
+        time_b = time()
 
-    #     time_a = time()
-    #     vb_tree.check_valid_tree(vb_tree.root)
-    #     time_b = time()
+        time_to_search = time_b - time_a
+        print("Searched for {0} elements in {1:.3f} s".format(NUMBER_SEARCH_KEYS, time_to_search), file=sys.stderr)
 
-    #     print("[Checked tree valid: {0:.3f} s]".format(time_b - time_a), file=sys.stderr)
+    if len(sys.argv) > 1:
+        print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}".format(
+            'VBTree', WIDTH_BITS, WIDTH, KEY_RANGE, NUMBER_INITIAL_KEYS, NUMBER_ADDED_KEYS, 
+            time_initial, compute_root,
+            time_to_add if time_to_add is not None else '',
+            check_valid_tree_after_add if check_valid_tree_after_add is not None else '',
+            NUMBER_SEARCH_KEYS if NUMBER_SEARCH_KEYS != 0 else '',
+            time_to_search if time_to_search is not None else ''
+        ))

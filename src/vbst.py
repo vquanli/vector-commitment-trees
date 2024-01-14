@@ -192,11 +192,13 @@ class VBST:
             node_to_delete = path[-1][0]
             node_to_pullup = next(child for child in [
                                   node_to_delete.left, node_to_delete.right] if child is not None)
+            
+
             path.pop()
-            node_to_update = path[-1][0]
-            if path[-1][1] == 0:
+            node_to_update, node_edge = path[-1]
+            if node_edge == 0:
                 node_to_update.left = node_to_pullup
-            elif path[-1][1] == 1:
+            elif node_edge == 1:
                 node_to_update.right = node_to_pullup
             value_change = (int_from_bytes(node_to_pullup.hash) -
                             int_from_bytes(node_to_delete.hash) + self.modulus) % self.modulus
@@ -359,15 +361,27 @@ class VBST:
 if __name__ == "__main__":
     # Parameters
     MODULUS = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
-    WIDTH = 2
+    WIDTH_BITS = 1
+    WIDTH = 2**WIDTH_BITS
     PRIMITIVE_ROOT = 7
     SECRET = 8927347823478352432985
 
     # Number of keys to insert, delete, and add
     NUMBER_INITIAL_KEYS = 2**13
     NUMBER_ADDED_KEYS = 2**7
+    NUMBER_SEARCH_KEYS = 0
     NUMBER_DELETED_KEYS = 2**7
     KEY_RANGE = 2**256-1
+
+    if len(sys.argv) > 1:
+        WIDTH_BITS = int(sys.argv[1])
+        WIDTH = 2 ** WIDTH_BITS
+
+        KEY_RANGE = 2 ** int(sys.argv[2])
+        NUMBER_INITIAL_KEYS = 2 ** int(sys.argv[3])
+        NUMBER_ADDED_KEYS = 2 ** int(sys.argv[4]) if int(sys.argv[4]) != 0 else 0
+        NUMBER_SEARCH_KEYS = 2 ** int(sys.argv[5]) if int(sys.argv[5]) != 0 else 0
+        NUMBER_DELETED_KEYS = 2 ** int(sys.argv[6]) if int(sys.argv[6]) != 0 else 0
 
     # Generate setup
     kzg_integration = KzgIntegration(SECRET, MODULUS, WIDTH, PRIMITIVE_ROOT)
@@ -378,29 +392,35 @@ if __name__ == "__main__":
     vbst = VBST(kzg_integration, root)
 
     # Insert nodes
-
     values = {}
+
+    time_a = time()
     for i in range(NUMBER_INITIAL_KEYS):
         key, value = randint(0, KEY_RANGE), randint(0, KEY_RANGE)
         vbst.insert_node(int_to_bytes(key), int_to_bytes(value))
         values[key] = value
+    time_b = time()
 
-    print("Inserted {0} elements".format(NUMBER_INITIAL_KEYS), file=sys.stderr)
+    time_initial = time_b - time_a
+    print("Inserted {0} elements in {1:.3f} s".format(NUMBER_INITIAL_KEYS, time_initial), file=sys.stderr)
 
     time_a = time()
     vbst.add_node_hash(vbst.root)
     time_b = time()
+    compute_root = time_b - time_a
 
-    print("Computed VBST root in {0:.3f} s".format(
-        time_b - time_a), file=sys.stderr)
+    print("Computed VBST root in {0:.3f} s".format(compute_root), file=sys.stderr)
+    
+    # time_a = time()
+    # vbst.check_valid_tree(vbst.root)
+    # time_b = time()
+    # compute_tree_valid = time_b - time_a
 
+    # print("[Checked tree valid: {0:.3f} s]".format(compute_tree_valid), file=sys.stderr)
+
+    time_to_add = None
+    check_valid_tree_after_add = None
     if NUMBER_ADDED_KEYS > 0:
-        time_a = time()
-        vbst.check_valid_tree(vbst.root)
-        time_b = time()
-
-        print("[Checked tree valid: {0:.3f} s]".format(
-            time_b - time_a), file=sys.stderr)
 
         time_x = time()
         for i in range(NUMBER_ADDED_KEYS):
@@ -409,16 +429,35 @@ if __name__ == "__main__":
             values[key] = value
         time_y = time()
 
-        print("Additionally inserted {0} elements in {1:.3f} s".format(
-            NUMBER_ADDED_KEYS, time_y - time_x), file=sys.stderr)
+        time_to_add = time_y - time_x
+        print("Additionally inserted {0} elements in {1:.3f} s".format(NUMBER_ADDED_KEYS, time_to_add), file=sys.stderr)
 
         time_a = time()
         vbst.check_valid_tree(root)
         time_b = time()
+        check_valid_tree_after_add = time_b - time_a
 
-        print("[Checked tree valid: {0:.3f} s]".format(
-            time_b - time_a), file=sys.stderr)
+        print("[Checked tree valid: {0:.3f} s]".format(check_valid_tree_after_add), file=sys.stderr)
 
+
+    time_to_search = None
+    if NUMBER_SEARCH_KEYS > 0:
+        all_keys = list(values.keys())
+        shuffle(all_keys)
+
+        keys_to_search = all_keys[:NUMBER_SEARCH_KEYS]
+
+        time_a = time()
+        for key in keys_to_search:
+            vbst.find_node(vbst.root, int_to_bytes(key))
+        time_b = time()
+
+        time_to_search = time_b - time_a
+        print("Searched for {0} elements in {1:.3f} s".format(NUMBER_SEARCH_KEYS, time_to_search), file=sys.stderr)
+
+
+    time_to_delete = None
+    check_valid_tree_after_delete = None
     if NUMBER_DELETED_KEYS > 0:
         all_keys = list(values.keys())
         shuffle(all_keys)
@@ -431,12 +470,24 @@ if __name__ == "__main__":
             del values[key]
         time_b = time()
 
-        print("Deleted {0} elements in {1:.3f} s".format(
-            NUMBER_DELETED_KEYS, time_b - time_a), file=sys.stderr)
+        time_to_delete = time_b - time_a
+        print("Deleted {0} elements in {1:.3f} s".format(NUMBER_DELETED_KEYS, time_to_delete), file=sys.stderr)
 
         time_a = time()
-        vbst.check_valid_tree(root)
-        time_b = time()
+        vbst.check_valid_tree(vbst.root)
+        check_valid_tree_after_delete = time_b - time_a
+        
+        print("[Checked tree valid: {0:.3f} s]".format(check_valid_tree_after_delete), file=sys.stderr)
 
-        print("[Checked tree valid: {0:.3f} s]".format(
-            time_b - time_a), file=sys.stderr)
+    if len(sys.argv) > 1:
+        print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}".format(
+            'VBST', WIDTH_BITS, WIDTH, KEY_RANGE, NUMBER_INITIAL_KEYS, NUMBER_ADDED_KEYS, 
+            time_initial, compute_root, 
+            time_to_add if time_to_add is not None else '',
+            check_valid_tree_after_add if check_valid_tree_after_add is not None else '',
+            NUMBER_SEARCH_KEYS if NUMBER_SEARCH_KEYS != 0 else '',
+            time_to_search if time_to_search is not None else '',
+            NUMBER_DELETED_KEYS if NUMBER_DELETED_KEYS != 0 else '', 
+            time_to_delete if time_to_delete is not None else '', 
+            check_valid_tree_after_delete if check_valid_tree_after_delete is not None else ''
+        ))
